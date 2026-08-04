@@ -1,0 +1,14 @@
+[package]
+name = "net-wire"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "net_wire"
+
+[features]
+default = []
+ethernet = []
+
+[lints.rust]
+unsafe_code = "deny"
