@@ -9,6 +9,9 @@ name = "net_wire"
 [features]
 default = []
 ethernet = []
+arp = []
+ipv4 = []
+ipv6 = []
 
 [lints.rust]
 unsafe_code = "deny"
