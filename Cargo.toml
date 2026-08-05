@@ -17,6 +17,8 @@ icmpv4 = []
 icmpv6 = []
 udp = []
 tcp = []
+tls = []
+http1 = []
 
 [[test]]
 name = "ethernet"
@@ -57,6 +59,16 @@ required-features = ["udp"]
 name = "tcp"
 path = "tests/tcp.rs"
 required-features = ["tcp"]
+
+[[test]]
+name = "tls"
+path = "tests/tls.rs"
+required-features = ["tls"]
+
+[[test]]
+name = "http1"
+path = "tests/http1.rs"
+required-features = ["http1"]
 
 [lints.rust]
 unsafe_code = "deny"

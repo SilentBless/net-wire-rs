@@ -30,6 +30,9 @@ pub mod error;
 #[cfg(feature = "ethernet")]
 /// Ethernet II frame views, semantic fields, and caller-buffer construction.
 pub mod ethernet;
+#[cfg(feature = "http1")]
+/// Standalone HTTP/1 head and chunked-body views and caller-buffer construction.
+pub mod http1;
 #[cfg(feature = "icmpv4")]
 /// ICMPv4 message views and caller-buffer construction.
 pub mod icmpv4;
@@ -45,6 +48,9 @@ pub mod ipv6;
 #[cfg(feature = "tcp")]
 /// TCP segment views and caller-buffer construction.
 pub mod tcp;
+#[cfg(feature = "tls")]
+/// TLS record and handshake views and caller-buffer construction.
+pub mod tls;
 #[cfg(feature = "udp")]
 /// UDP datagram views and caller-buffer construction.
 pub mod udp;
@@ -59,6 +65,12 @@ pub use error::ParseError;
 pub use ethernet::{
     EtherType, EthernetFrame, EthernetFrameBuildError, EthernetFrameBuilder, EthernetFrameMut,
     MacAddress,
+};
+#[cfg(feature = "http1")]
+pub use http1::{
+    Http1BodyFraming, Http1BuildError, Http1Chunk, Http1ChunkedBody, Http1Chunks, Http1Field,
+    Http1FieldIter, Http1FieldRef, Http1Fields, Http1ParseError, Http1RequestHead,
+    Http1RequestHeadBuilder, Http1ResponseHead, Http1ResponseHeadBuilder, Http1Version,
 };
 #[cfg(feature = "icmpv4")]
 pub use icmpv4::{
@@ -84,6 +96,20 @@ pub use ipv6::{
 pub use pseudoheader::PseudoHeaderChecksumError;
 #[cfg(feature = "tcp")]
 pub use tcp::{TcpFlags, TcpSegment, TcpSegmentBuildError, TcpSegmentBuilder, TcpSegmentMut};
+#[cfg(feature = "tls")]
+pub use tls::{
+    AlpnProtocol, AlpnProtocolIter, AlpnProtocolList, CertificateCompressionAlgorithms,
+    ClientHello, ClientHelloBuilder, ClientKeyShare, ClientPreSharedKey, ClientServerNameList,
+    ClientSupportedVersions, Cookie, EcPointFormats, HELLO_RETRY_REQUEST_RANDOM, HrrKeyShare,
+    KeyShareEntry, KeyShareIter, PskBinderIter, PskIdentity, PskIdentityIter, PskKeyExchangeModes,
+    ServerHello, ServerHelloBuilder, ServerKeyShare, ServerName, ServerNameIter,
+    ServerPreSharedKey, ServerSelectedAlpn, ServerSupportedVersion, SignatureAlgorithms,
+    SupportedGroups, SupportedVersions, TlsBuildError, TlsCertificateCompressionAlgorithm,
+    TlsCipherSuite, TlsCompressionMethod, TlsContentType, TlsExtension, TlsExtensionBuilder,
+    TlsExtensionType, TlsExtensions, TlsHandshake, TlsHandshakeBuilder, TlsHandshakeType,
+    TlsNamedGroup, TlsParseError, TlsProtocolVersion, TlsPskKeyExchangeMode, TlsRecord,
+    TlsRecordBuilder, TlsRecordMut, TlsServerNameType, TlsSignatureScheme,
+};
 #[cfg(feature = "udp")]
 pub use udp::{
     UdpChecksumStatus, UdpDatagram, UdpDatagramBuildError, UdpDatagramBuilder, UdpDatagramMut,
