@@ -33,6 +33,9 @@ pub mod ethernet;
 #[cfg(feature = "http1")]
 /// Standalone HTTP/1 head and chunked-body views and caller-buffer construction.
 pub mod http1;
+#[cfg(feature = "http2")]
+/// Standalone raw HTTP/2 preface and frame views and caller-buffer construction.
+pub mod http2;
 #[cfg(feature = "icmpv4")]
 /// ICMPv4 message views and caller-buffer construction.
 pub mod icmpv4;
@@ -71,6 +74,29 @@ pub use http1::{
     Http1BodyFraming, Http1BuildError, Http1Chunk, Http1ChunkedBody, Http1Chunks, Http1Field,
     Http1FieldIter, Http1FieldRef, Http1Fields, Http1ParseError, Http1RequestHead,
     Http1RequestHeadBuilder, Http1ResponseHead, Http1ResponseHeadBuilder, Http1Version,
+};
+#[cfg(feature = "http2")]
+pub use http2::{
+    HPACK_STATIC_TABLE_LEN, HTTP2_CLIENT_PREFACE, HpackBlockDecoder, HpackBlockEncoder,
+    HpackDecodeError, HpackDecodeStep, HpackDecodedField, HpackDecodedFieldMode,
+    HpackDecoderContext, HpackDynamicTable, HpackDynamicTableEntry, HpackDynamicTableError,
+    HpackDynamicTableInsertResult, HpackDynamicTableSizeUpdate, HpackDynamicTableSizeUpdateBuilder,
+    HpackEncodeError, HpackEncodeLiteralName, HpackEncoderContext, HpackHeaderFieldRef,
+    HpackHuffmanDecodeError, HpackHuffmanDecoder, HpackHuffmanEncodeError, HpackHuffmanEncoder,
+    HpackIndexedField, HpackIndexedFieldBuilder, HpackInteger, HpackIntegerBuildError,
+    HpackIntegerBuilder, HpackIntegerParseError, HpackLiteralField, HpackLiteralFieldBuilder,
+    HpackLiteralHuffman, HpackLiteralMode, HpackLiteralName, HpackLiteralValue,
+    HpackRepresentation, HpackRepresentationBuildError, HpackRepresentationParseError,
+    HpackStaticTable, HpackStringLiteral, HpackStringLiteralBuildError, HpackStringLiteralBuilder,
+    HpackStringLiteralParseError, Http2BuildError, Http2ClientPreface, Http2Continuation,
+    Http2ContinuationBuilder, Http2Data, Http2DataBuilder, Http2ErrorCode, Http2Frame,
+    Http2FrameBuilder, Http2FrameMut, Http2FrameType, Http2Goaway, Http2GoawayBuilder,
+    Http2HeaderBlockFragment, Http2HeaderBlockSequence, Http2HeaderBlockSequenceError,
+    Http2Headers, Http2HeadersBuilder, Http2ParseError, Http2Ping, Http2PingBuilder, Http2Priority,
+    Http2PriorityFrame, Http2PriorityFrameBuilder, Http2PushPromise, Http2PushPromiseBuilder,
+    Http2RstStream, Http2RstStreamBuilder, Http2Setting, Http2SettingId, Http2Settings,
+    Http2SettingsBuilder, Http2SettingsIter, Http2StreamId, Http2StreamIdError,
+    Http2WindowIncrement, Http2WindowUpdate, Http2WindowUpdateBuilder,
 };
 #[cfg(feature = "icmpv4")]
 pub use icmpv4::{
