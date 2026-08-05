@@ -45,8 +45,6 @@ fn generic_rfc826_layout_preserves_unknowns_and_bounds() {
     assert_eq!(packet.target_hardware_address(), &[6, 7, 8]);
     assert_eq!(packet.target_protocol_address(), &[9, 10]);
     assert_eq!(packet.as_bytes(), &GENERIC[..18]);
-    assert_eq!(packet.sender_ipv4_address(), None);
-    assert_eq!(packet.target_ipv4_address(), None);
 }
 
 #[test]
@@ -69,34 +67,6 @@ fn parsing_accepts_zero_addresses_and_rejects_short_layouts() {
     assert_eq!(zero.as_bytes(), &[0, 1, 8, 0, 0, 0, 0, 1]);
     assert_eq!(zero.sender_hardware_address(), &[]);
     assert_eq!(zero.target_protocol_address(), &[]);
-}
-
-#[test]
-fn ipv4_helpers_require_ipv4_type_and_four_octets() {
-    let wrong_type = [
-        0, 1, 0x12, 0x34, 1, 4, 0, 1, 9, 192, 0, 2, 1, 8, 192, 0, 2, 2,
-    ];
-    let wrong_length = [0, 1, 8, 0, 1, 3, 0, 1, 9, 192, 0, 2, 8, 192, 0, 3];
-    assert_eq!(
-        ArpPacket::parse(&wrong_type).unwrap().sender_ipv4_address(),
-        None
-    );
-    assert_eq!(
-        ArpPacket::parse(&wrong_length)
-            .unwrap()
-            .target_ipv4_address(),
-        None
-    );
-    let valid = [0, 1, 8, 0, 1, 4, 0, 1, 9, 192, 0, 2, 1, 8, 192, 0, 2, 2];
-    let packet = ArpPacket::parse(&valid).unwrap();
-    assert_eq!(
-        packet.sender_ipv4_address(),
-        Some(Ipv4Address::new([192, 0, 2, 1]))
-    );
-    assert_eq!(
-        packet.target_ipv4_address(),
-        Some(Ipv4Address::new([192, 0, 2, 2]))
-    );
 }
 
 #[test]

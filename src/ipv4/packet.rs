@@ -1,9 +1,11 @@
 //! IPv4 packet views and header-checksum handling (RFC 791).
 
 use super::Ipv4Protocol;
+use crate::ParseError;
 #[cfg(feature = "ethernet")]
 use crate::{EtherType, EthernetFrame, EthernetFrameMut};
-use crate::{Ipv4Address, ParseError};
+
+use super::Ipv4Address;
 const HEADER: usize = 20;
 
 /// A structurally validated immutable RFC 791 packet view.

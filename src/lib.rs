@@ -14,8 +14,6 @@ pub mod error;
 #[cfg(feature = "ethernet")]
 /// Ethernet II frame views, semantic fields, and caller-buffer construction.
 pub mod ethernet;
-#[cfg(any(feature = "arp", feature = "ipv4"))]
-mod ip;
 #[cfg(feature = "ipv4")]
 /// IPv4 packet views, semantic fields, and caller-buffer construction.
 pub mod ipv4;
@@ -34,10 +32,10 @@ pub use ethernet::{
     EtherType, EthernetFrame, EthernetFrameBuildError, EthernetFrameBuilder, EthernetFrameMut,
     MacAddress,
 };
-#[cfg(any(feature = "arp", feature = "ipv4"))]
-pub use ip::Ipv4Address;
 #[cfg(feature = "ipv4")]
-pub use ipv4::{Ipv4Packet, Ipv4PacketBuildError, Ipv4PacketBuilder, Ipv4PacketMut, Ipv4Protocol};
+pub use ipv4::{
+    Ipv4Address, Ipv4Packet, Ipv4PacketBuildError, Ipv4PacketBuilder, Ipv4PacketMut, Ipv4Protocol,
+};
 #[cfg(feature = "ipv6")]
 pub use ipv6::{
     Ipv6Address, Ipv6NextHeader, Ipv6Packet, Ipv6PacketBuildError, Ipv6PacketBuilder,

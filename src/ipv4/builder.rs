@@ -1,6 +1,5 @@
-use super::Ipv4Protocol;
 use super::packet::{Ipv4PacketMut, checksum_sum};
-use crate::Ipv4Address;
+use super::{Ipv4Address, Ipv4Protocol};
 use core::fmt;
 /// IPv4 builder validation failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
