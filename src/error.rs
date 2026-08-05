@@ -33,6 +33,17 @@ pub enum ParseError {
         /// Declared packet length.
         total_length: usize,
     },
+    /// An IPv6 extension header encodes a length below that header's format minimum.
+    InvalidExtensionHeaderLength {
+        /// Next Header value identifying the invalid extension header.
+        next_header: u8,
+        /// Minimum valid extension-header length.
+        minimum: usize,
+        /// Encoded extension-header length.
+        actual: usize,
+    },
+    /// A nonempty IPv6 tail cannot be resolved when the base Payload Length is zero.
+    UnresolvedPayloadLength,
 }
 
 impl fmt::Display for ParseError {
@@ -62,6 +73,15 @@ impl fmt::Display for ParseError {
                     "invalid total length: header {header_length}, total {total_length}"
                 )
             }
+            Self::InvalidExtensionHeaderLength {
+                next_header,
+                minimum,
+                actual,
+            } => write!(
+                f,
+                "invalid IPv6 extension header length for next header {next_header}: minimum {minimum}, got {actual}"
+            ),
+            Self::UnresolvedPayloadLength => f.write_str("IPv6 payload length is unresolved"),
         }
     }
 }

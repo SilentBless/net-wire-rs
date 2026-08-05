@@ -1,5 +1,6 @@
-use super::packet::{Ipv4PacketMut, checksum_sum};
+use super::packet::Ipv4PacketMut;
 use super::{Ipv4Address, Ipv4Protocol};
+use crate::checksum;
 use core::fmt;
 /// IPv4 builder validation failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -167,7 +168,7 @@ impl<'buffer, 'input> Ipv4PacketBuilder<'buffer, 'input> {
         b[12..16].copy_from_slice(&source.octets());
         b[16..20].copy_from_slice(&destination.octets());
         b[20..header].copy_from_slice(self.options);
-        let checksum = !checksum_sum(&b[..header]);
+        let checksum = !checksum::sum(&b[..header]);
         b[10..12].copy_from_slice(&checksum.to_be_bytes());
         Ok(Ipv4PacketMut::from_validated(b, header))
     }

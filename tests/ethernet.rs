@@ -1,5 +1,3 @@
-#![cfg(feature = "ethernet")]
-
 use net_wire::{
     EtherType, EthernetFrame, EthernetFrameBuildError, EthernetFrameBuilder, EthernetFrameMut,
     MacAddress, ParseError,

@@ -2,6 +2,7 @@
 name = "net-wire"
 version = "0.1.0"
 edition = "2024"
+autotests = false
 
 [lib]
 name = "net_wire"
@@ -12,6 +13,50 @@ ethernet = []
 arp = []
 ipv4 = []
 ipv6 = []
+icmpv4 = []
+icmpv6 = []
+udp = []
+tcp = []
+
+[[test]]
+name = "ethernet"
+path = "tests/ethernet.rs"
+required-features = ["ethernet"]
+
+[[test]]
+name = "arp"
+path = "tests/arp.rs"
+required-features = ["arp"]
+
+[[test]]
+name = "ipv4"
+path = "tests/ipv4.rs"
+required-features = ["ipv4"]
+
+[[test]]
+name = "ipv6"
+path = "tests/ipv6.rs"
+required-features = ["ipv6"]
+
+[[test]]
+name = "icmpv4"
+path = "tests/icmpv4.rs"
+required-features = ["icmpv4"]
+
+[[test]]
+name = "icmpv6"
+path = "tests/icmpv6.rs"
+required-features = ["icmpv6"]
+
+[[test]]
+name = "udp"
+path = "tests/udp.rs"
+required-features = ["udp"]
+
+[[test]]
+name = "tcp"
+path = "tests/tcp.rs"
+required-features = ["tcp"]
 
 [lints.rust]
 unsafe_code = "deny"

@@ -2,8 +2,12 @@
 
 mod address;
 mod builder;
+#[cfg(any(feature = "icmpv4", feature = "udp", feature = "tcp"))]
+mod dispatch;
 mod packet;
 mod protocol;
+#[cfg(any(feature = "udp", feature = "tcp"))]
+mod transport;
 
 pub use address::Ipv4Address;
 pub use builder::{Ipv4PacketBuildError, Ipv4PacketBuilder};

@@ -10,10 +10,10 @@ pub(super) const HEADER_LENGTH: usize = 40;
 pub enum Ipv6PayloadLength {
     /// A nonzero payload length declared directly by the base header.
     Declared(u16),
-    /// A zero field whose payload extent cannot be resolved from the base header alone.
+    /// A zero field whose nonempty payload extent cannot be resolved from the base header alone.
     ///
-    /// RFC 8200 section 3 reserves zero for a Jumbo Payload option. At this parsing layer,
-    /// supplied trailing bytes may instead be absent or include lower-layer padding.
+    /// An ordinary empty payload also encodes zero. A nonempty tail may include a Jumbo Payload
+    /// option or lower-layer padding and cannot be resolved at this parsing layer.
     Unspecified,
 }
 
@@ -21,7 +21,8 @@ pub enum Ipv6PayloadLength {
 ///
 /// Parsing implements the fixed header from RFC 8200 section 3. It does not traverse extension
 /// headers. A nonzero Payload Length bounds the view exactly; a zero field retains every supplied
-/// trailing byte as an unresolved tail.
+/// trailing byte as an unresolved tail; zero with no trailing bytes is an ordinary empty
+/// payload.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ipv6Packet<'a> {
     bytes: &'a [u8],
@@ -97,8 +98,8 @@ impl<'a> Ipv6Packet<'a> {
     /// Returns bytes after the fixed header.
     ///
     /// For a nonzero Payload Length these are exactly the declared payload. For a zero field they
-    /// are an unresolved tail that may be empty payload, lower-layer padding, or Jumbo Payload
-    /// content; extension-header handling must resolve that distinction.
+    /// are an unresolved nonempty tail that may be lower-layer padding or Jumbo Payload content;
+    /// an empty tail is an ordinary empty payload.
     #[inline]
     pub fn payload(&self) -> &'a [u8] {
         &self.bytes[HEADER_LENGTH..]

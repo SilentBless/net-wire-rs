@@ -1,4 +1,3 @@
-#![cfg(feature = "ipv4")]
 use net_wire::*;
 const BASIC: [u8; 21] = [
     0x45, 0, 0, 20, 0, 0, 0, 0, 64, 6, 0xf6, 0xe0, 192, 0, 2, 1, 192, 0, 2, 2, 0xee,
@@ -292,4 +291,313 @@ fn builder_is_exact_and_errors_atomic() {
         })
     );
     assert_eq!(b, old);
+}
+
+#[cfg(feature = "ethernet")]
+mod ethernet_dispatch {
+    use super::*;
+
+    fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            (ether_type >> 8) as u8,
+            ether_type as u8,
+        ];
+        bytes.extend_from_slice(payload);
+        bytes
+    }
+
+    #[test]
+    fn ipv4_dispatch_matches_ether_type_and_writes_through() {
+        assert!(
+            EthernetFrame::parse(&frame(0x0800, &BASIC[..20]))
+                .unwrap()
+                .ipv4()
+                .unwrap()
+                .is_some()
+        );
+        assert_eq!(
+            EthernetFrame::parse(&frame(0x86dd, &BASIC[..20]))
+                .unwrap()
+                .ipv4(),
+            Ok(None)
+        );
+        assert_eq!(
+            EthernetFrame::parse(&frame(0x0800, &BASIC[..19]))
+                .unwrap()
+                .ipv4(),
+            Err(ParseError::Truncated {
+                minimum: 20,
+                available: 19,
+            })
+        );
+
+        let mut bytes = frame(0x0800, &BASIC[..20]);
+        let mut ethernet = EthernetFrameMut::parse(&mut bytes).unwrap();
+        ethernet.ipv4_mut().unwrap().unwrap().set_ttl(1);
+        assert_eq!(ethernet.payload()[8], 1);
+    }
+}
+
+#[cfg(feature = "icmpv4")]
+mod icmpv4_dispatch {
+    use super::*;
+
+    fn packet(protocol: u8, fragment: u16, payload: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![
+            0x45,
+            0,
+            0,
+            (20 + payload.len()) as u8,
+            0,
+            0,
+            (fragment >> 8) as u8,
+            fragment as u8,
+            64,
+            protocol,
+            0,
+            0,
+            192,
+            0,
+            2,
+            1,
+            192,
+            0,
+            2,
+            2,
+        ];
+        bytes.extend_from_slice(payload);
+        bytes
+    }
+
+    #[test]
+    fn dispatches_icmpv4_only_when_complete_and_atomic() {
+        assert!(
+            Ipv4Packet::parse(&packet(1, 0, &[8, 0, 0, 0]))
+                .unwrap()
+                .icmpv4()
+                .unwrap()
+                .is_some()
+        );
+        assert_eq!(
+            Ipv4Packet::parse(&packet(17, 0, &[8, 0, 0, 0]))
+                .unwrap()
+                .icmpv4(),
+            Ok(None)
+        );
+        assert_eq!(
+            Ipv4Packet::parse(&packet(1, 0, &[8, 0, 0]))
+                .unwrap()
+                .icmpv4(),
+            Err(ParseError::Truncated {
+                minimum: 4,
+                available: 3
+            })
+        );
+        for fragment in [0x2000, 1] {
+            assert_eq!(
+                Ipv4Packet::parse(&packet(1, fragment, &[8, 0, 0, 0]))
+                    .unwrap()
+                    .icmpv4(),
+                Ok(None)
+            );
+        }
+        for fragment in [0x4000, 0x8000] {
+            assert!(
+                Ipv4Packet::parse(&packet(1, fragment, &[8, 0, 0, 0]))
+                    .unwrap()
+                    .icmpv4()
+                    .unwrap()
+                    .is_some()
+            );
+        }
+    }
+
+    #[test]
+    fn mutable_icmpv4_dispatch_writes_through() {
+        let mut bytes = packet(1, 0, &[8, 0, 0, 0]);
+        let mut ipv4 = Ipv4PacketMut::parse(&mut bytes).unwrap();
+        ipv4.icmpv4_mut().unwrap().unwrap().set_code(7);
+        assert_eq!(ipv4.payload()[1], 7);
+    }
+}
+
+#[cfg(feature = "udp")]
+mod udp_dispatch {
+    use super::*;
+
+    fn packet(protocol: u8, fragment: u16, payload: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![
+            0x45,
+            0,
+            0,
+            (20 + payload.len()) as u8,
+            0,
+            0,
+            (fragment >> 8) as u8,
+            fragment as u8,
+            64,
+            protocol,
+            0,
+            0,
+            192,
+            0,
+            2,
+            1,
+            192,
+            0,
+            2,
+            2,
+        ];
+        bytes.extend_from_slice(payload);
+        bytes
+    }
+
+    #[test]
+    fn dispatches_udp_only_when_complete_and_atomic() {
+        let valid = [0, 1, 0, 2, 0, 8, 0, 0];
+        assert!(
+            Ipv4Packet::parse(&packet(17, 0, &valid))
+                .unwrap()
+                .udp()
+                .unwrap()
+                .is_some()
+        );
+        assert_eq!(
+            Ipv4Packet::parse(&packet(1, 0, &valid)).unwrap().udp(),
+            Ok(None)
+        );
+        assert_eq!(
+            Ipv4Packet::parse(&packet(17, 0, &valid[..7]))
+                .unwrap()
+                .udp(),
+            Err(ParseError::Truncated {
+                minimum: 8,
+                available: 7
+            })
+        );
+        for fragment in [0x2000, 1] {
+            assert_eq!(
+                Ipv4Packet::parse(&packet(17, fragment, &valid))
+                    .unwrap()
+                    .udp(),
+                Ok(None)
+            );
+        }
+        for fragment in [0x4000, 0x8000] {
+            assert!(
+                Ipv4Packet::parse(&packet(17, fragment, &valid))
+                    .unwrap()
+                    .udp()
+                    .unwrap()
+                    .is_some()
+            );
+        }
+    }
+
+    #[test]
+    fn mutable_udp_dispatch_writes_through() {
+        let mut bytes = packet(17, 0, &[0, 1, 0, 2, 0, 8, 0, 0]);
+        let mut ipv4 = Ipv4PacketMut::parse(&mut bytes).unwrap();
+        ipv4.udp_mut().unwrap().unwrap().set_source_port(9);
+        assert_eq!(&ipv4.payload()[..2], &[0, 9]);
+    }
+}
+
+#[cfg(feature = "tcp")]
+mod tcp_dispatch {
+    use super::*;
+
+    fn packet(protocol: u8, fragment: u16, payload: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![
+            0x45,
+            0,
+            0,
+            (20 + payload.len()) as u8,
+            0,
+            0,
+            (fragment >> 8) as u8,
+            fragment as u8,
+            64,
+            protocol,
+            0,
+            0,
+            192,
+            0,
+            2,
+            1,
+            192,
+            0,
+            2,
+            2,
+        ];
+        bytes.extend_from_slice(payload);
+        bytes
+    }
+
+    #[test]
+    fn dispatches_tcp_only_when_complete_and_atomic() {
+        let valid = [
+            0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0x50, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        assert!(
+            Ipv4Packet::parse(&packet(6, 0, &valid))
+                .unwrap()
+                .tcp()
+                .unwrap()
+                .is_some()
+        );
+        assert_eq!(
+            Ipv4Packet::parse(&packet(17, 0, &valid)).unwrap().tcp(),
+            Ok(None)
+        );
+        assert_eq!(
+            Ipv4Packet::parse(&packet(6, 0, &valid[..19]))
+                .unwrap()
+                .tcp(),
+            Err(ParseError::Truncated {
+                minimum: 20,
+                available: 19
+            })
+        );
+        for fragment in [0x2000, 1] {
+            assert_eq!(
+                Ipv4Packet::parse(&packet(6, fragment, &valid))
+                    .unwrap()
+                    .tcp(),
+                Ok(None)
+            );
+        }
+        for fragment in [0x4000, 0x8000] {
+            assert!(
+                Ipv4Packet::parse(&packet(6, fragment, &valid))
+                    .unwrap()
+                    .tcp()
+                    .unwrap()
+                    .is_some()
+            );
+        }
+    }
+
+    #[test]
+    fn mutable_tcp_dispatch_writes_through() {
+        let payload = [
+            0, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0x50, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let mut bytes = packet(6, 0, &payload);
+        let mut ipv4 = Ipv4PacketMut::parse(&mut bytes).unwrap();
+        ipv4.tcp_mut().unwrap().unwrap().set_source_port(9);
+        assert_eq!(&ipv4.payload()[..2], &[0, 9]);
+    }
 }

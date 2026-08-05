@@ -6,6 +6,16 @@ pub struct Ipv6NextHeader(u8);
 impl Ipv6NextHeader {
     /// IPv6 Hop-by-Hop Options (`0`).
     pub const HOPOPT: Self = Self(0);
+    /// Routing (`43`).
+    pub const ROUTING: Self = Self(43);
+    /// Fragment (`44`).
+    pub const FRAGMENT: Self = Self(44);
+    /// Encapsulating Security Payload (`50`).
+    pub const ESP: Self = Self(50);
+    /// Authentication Header (`51`).
+    pub const AUTHENTICATION: Self = Self(51);
+    /// Destination Options (`60`).
+    pub const DESTINATION_OPTIONS: Self = Self(60);
     /// Transmission Control Protocol (`6`).
     pub const TCP: Self = Self(6);
     /// User Datagram Protocol (`17`).

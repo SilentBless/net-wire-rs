@@ -1,9 +1,9 @@
 //! IPv4 packet views and header-checksum handling (RFC 791).
 
 use super::Ipv4Protocol;
-use crate::ParseError;
 #[cfg(feature = "ethernet")]
 use crate::{EtherType, EthernetFrame, EthernetFrameMut};
+use crate::{ParseError, checksum};
 
 use super::Ipv4Address;
 const HEADER: usize = 20;
@@ -99,7 +99,7 @@ impl<'a> Ipv4Packet<'a> {
     /// Checks the one's-complement checksum across the complete IHL, including options.
     #[inline]
     pub fn checksum_is_valid(&self) -> bool {
-        checksum_sum(&self.bytes[..self.header_length]) == 0xffff
+        checksum::sum(&self.bytes[..self.header_length]) == 0xffff
     }
 }
 /// A structurally validated mutable RFC 791 packet view.
@@ -255,13 +255,13 @@ impl<'a> Ipv4PacketMut<'a> {
         write_u16(
             self.bytes,
             10,
-            !checksum_sum(&self.bytes[..self.header_length]),
+            !checksum::sum(&self.bytes[..self.header_length]),
         )
     }
     /// Checks the current checksum across the full IHL.
     #[inline]
     pub fn checksum_is_valid(&self) -> bool {
-        checksum_sum(&self.bytes[..self.header_length]) == 0xffff
+        checksum::sum(&self.bytes[..self.header_length]) == 0xffff
     }
 }
 #[inline]
@@ -275,21 +275,6 @@ fn read_u16(bytes: &[u8], offset: usize) -> u16 {
 #[inline]
 fn write_u16(bytes: &mut [u8], offset: usize, value: u16) {
     bytes[offset..offset + 2].copy_from_slice(&value.to_be_bytes())
-}
-#[inline]
-pub(super) fn checksum_sum(bytes: &[u8]) -> u16 {
-    let mut sum = 0u32;
-    let mut offset = 0;
-    while offset < bytes.len() {
-        sum += u32::from(
-            (u16::from(bytes[offset]) << 8) | u16::from(*bytes.get(offset + 1).unwrap_or(&0)),
-        );
-        offset += 2;
-    }
-    while sum >> 16 != 0 {
-        sum = (sum & 0xffff) + (sum >> 16)
-    }
-    sum as u16
 }
 #[inline]
 fn validate(bytes: &[u8]) -> Result<(usize, usize), ParseError> {

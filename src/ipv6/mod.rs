@@ -2,8 +2,14 @@
 
 mod address;
 mod builder;
+#[cfg(any(feature = "icmpv6", feature = "udp", feature = "tcp"))]
+mod dispatch;
+#[cfg(any(feature = "icmpv6", feature = "udp", feature = "tcp"))]
+mod extensions;
 mod next_header;
 mod packet;
+#[cfg(any(feature = "icmpv6", feature = "udp", feature = "tcp"))]
+mod transport;
 
 pub use address::Ipv6Address;
 pub use builder::{Ipv6PacketBuildError, Ipv6PacketBuilder};
