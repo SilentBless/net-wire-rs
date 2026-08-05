@@ -48,6 +48,9 @@ pub mod ipv4;
 #[cfg(feature = "ipv6")]
 /// IPv6 packet views, semantic fields, and caller-buffer construction.
 pub mod ipv6;
+#[cfg(feature = "quic")]
+/// Standalone QUIC wire primitives and borrowed packet-header views.
+pub mod quic;
 #[cfg(feature = "tcp")]
 /// TCP segment views and caller-buffer construction.
 pub mod tcp;
@@ -120,6 +123,32 @@ pub use ipv6::{
     all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
 ))]
 pub use pseudoheader::PseudoHeaderChecksumError;
+#[cfg(all(feature = "quic", feature = "tls"))]
+pub use quic::QuicTransportParametersTlsExtensionError;
+#[cfg(feature = "quic")]
+pub use quic::{
+    QuicAckFrame, QuicAckRange, QuicAckRanges, QuicConnectionCloseFrame, QuicConnectionId,
+    QuicConnectionIdField, QuicCryptoFrame, QuicDataBlockedFrame, QuicDatagram, QuicEcnCounts,
+    QuicFrame, QuicFrameField, QuicFrameIter, QuicFrameParseError, QuicFrames,
+    QuicHandshakeDoneFrame, QuicHandshakePacketBuilder, QuicInitialPacketBuilder, QuicLongHeader,
+    QuicLongPacketType, QuicMaxDataFrame, QuicMaxStreamDataFrame, QuicMaxStreamsFrame,
+    QuicNewConnectionIdFrame, QuicNewTokenFrame, QuicPacket, QuicPacketBuildError,
+    QuicPacketBuildField, QuicPacketNumberLen, QuicPacketParseError, QuicPackets, QuicPaddingFrame,
+    QuicPathChallengeFrame, QuicPathResponseFrame, QuicPingFrame, QuicPreferredAddress,
+    QuicProtectedLongPacket, QuicResetStreamFrame, QuicRetireConnectionIdFrame, QuicRetryPacket,
+    QuicRetryPacketBuilder, QuicShortHeader, QuicShortHeaderContext, QuicShortPacketBuilder,
+    QuicStopSendingFrame, QuicStreamDataBlockedFrame, QuicStreamDirection, QuicStreamFrame,
+    QuicStreamsBlockedFrame, QuicTransportParameter, QuicTransportParameterField,
+    QuicTransportParameterHandshakeContext, QuicTransportParameterHandshakeError,
+    QuicTransportParameterId, QuicTransportParameterIter, QuicTransportParameterParseError,
+    QuicTransportParameterSemanticError, QuicTransportParameterSender,
+    QuicTransportParameterValueError, QuicTransportParameterValueKind, QuicTransportParameters,
+    QuicTransportParametersV1, QuicTruncatedPacketNumber, QuicUnknownLongPacket,
+    QuicUnprotectedHeaderError, QuicUnprotectedLongHeader, QuicUnprotectedShortHeader, QuicVarInt,
+    QuicVarIntBuildError, QuicVarIntBuilder, QuicVarIntLen, QuicVarIntParseError, QuicVersion,
+    QuicVersionIter, QuicVersionNegotiationPacket, QuicVersionNegotiationPacketBuilder,
+    QuicZeroRttPacketBuilder,
+};
 #[cfg(feature = "tcp")]
 pub use tcp::{TcpFlags, TcpSegment, TcpSegmentBuildError, TcpSegmentBuilder, TcpSegmentMut};
 #[cfg(feature = "tls")]

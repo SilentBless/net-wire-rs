@@ -20,6 +20,7 @@ tcp = []
 tls = []
 http1 = []
 http2 = []
+quic = []
 
 [[test]]
 name = "ethernet"
@@ -75,6 +76,16 @@ required-features = ["http1"]
 name = "http2"
 path = "tests/http2.rs"
 required-features = ["http2"]
+
+[[test]]
+name = "quic"
+path = "tests/quic.rs"
+required-features = ["quic"]
+
+[[test]]
+name = "quic_tls"
+path = "tests/quic_tls.rs"
+required-features = ["quic", "tls"]
 
 [lints.rust]
 unsafe_code = "deny"

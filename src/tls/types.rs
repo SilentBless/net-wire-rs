@@ -103,6 +103,8 @@ impl TlsExtensionType {
     pub const PSK_KEY_EXCHANGE_MODES: Self = Self(45);
     /// Key share.
     pub const KEY_SHARE: Self = Self(51);
+    /// RFC 9001 QUIC transport parameters.
+    pub const QUIC_TRANSPORT_PARAMETERS: Self = Self(0x0039);
 }
 
 impl TlsCipherSuite {
