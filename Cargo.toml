@@ -21,6 +21,7 @@ tls = []
 http1 = []
 http2 = []
 quic = []
+qpack = []
 
 [[test]]
 name = "ethernet"
@@ -86,6 +87,11 @@ required-features = ["quic"]
 name = "quic_tls"
 path = "tests/quic_tls.rs"
 required-features = ["quic", "tls"]
+
+[[test]]
+name = "qpack"
+path = "tests/qpack.rs"
+required-features = ["qpack"]
 
 [lints.rust]
 unsafe_code = "deny"

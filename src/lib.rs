@@ -16,6 +16,8 @@
     )
 ))]
 mod checksum;
+#[cfg(any(feature = "http2", feature = "qpack"))]
+mod header_huffman;
 #[cfg(any(
     all(feature = "ipv4", feature = "tcp"),
     all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
@@ -48,6 +50,9 @@ pub mod ipv4;
 #[cfg(feature = "ipv6")]
 /// IPv6 packet views, semantic fields, and caller-buffer construction.
 pub mod ipv6;
+#[cfg(feature = "qpack")]
+/// Standalone QPACK prefixed integers, Huffman payloads, and string-literal views.
+pub mod qpack;
 #[cfg(feature = "quic")]
 /// Standalone QUIC wire primitives and borrowed packet-header views.
 pub mod quic;
@@ -123,6 +128,43 @@ pub use ipv6::{
     all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
 ))]
 pub use pseudoheader::PseudoHeaderChecksumError;
+#[cfg(feature = "qpack")]
+pub use qpack::{
+    QPACK_INTEGER_MAX, QPACK_STATIC_TABLE_LEN, QpackBlockedStream, QpackBlockedStreams,
+    QpackBlockedStreamsError, QpackDecodedFieldEntry, QpackDecodedFieldIter, QpackDecodedFieldRef,
+    QpackDecodedFieldSection, QpackDecoderFeedbackError, QpackDecoderInstruction,
+    QpackDecoderInstructionApplyError, QpackDecoderInstructionBuildError,
+    QpackDecoderInstructionIter, QpackDecoderInstructionParseError, QpackDecoderInstructions,
+    QpackDecoderInstructionsApplyError, QpackDecoderInstructionsParseError, QpackDecoderState,
+    QpackDuplicate, QpackDuplicateBuilder, QpackDynamicTable, QpackDynamicTableEntry,
+    QpackDynamicTableError, QpackEncodedFieldSection, QpackEncoderInstruction,
+    QpackEncoderInstructionApplier, QpackEncoderInstructionApplyError,
+    QpackEncoderInstructionApplyOutcome, QpackEncoderInstructionBuildError,
+    QpackEncoderInstructionIter, QpackEncoderInstructionParseError, QpackEncoderInstructions,
+    QpackEncoderInstructionsApplyError, QpackEncoderInstructionsParseError,
+    QpackEncoderOutstandingSection, QpackEncoderState, QpackEncoderStateError, QpackFieldLine,
+    QpackFieldLineBuildError, QpackFieldLineIter, QpackFieldLineParseError, QpackFieldLines,
+    QpackFieldLinesParseError, QpackFieldPlan, QpackFieldSectionBase, QpackFieldSectionBlocked,
+    QpackFieldSectionContext, QpackFieldSectionContextError, QpackFieldSectionDecodeError,
+    QpackFieldSectionDecodeOutcome, QpackFieldSectionDecoder, QpackFieldSectionEncodeBuffers,
+    QpackFieldSectionEncodeError, QpackFieldSectionEncoder, QpackFieldSectionOutput,
+    QpackFieldSectionPlanError, QpackFieldSectionPlanSlot, QpackFieldSectionPrefix,
+    QpackFieldSectionPrefixBuildError, QpackFieldSectionPrefixBuilder,
+    QpackFieldSectionPrefixParseError, QpackHeaderFieldRef, QpackHuffmanDecodeError,
+    QpackHuffmanDecoder, QpackHuffmanEncodeError, QpackHuffmanEncoder, QpackIndexedFieldLine,
+    QpackIndexedFieldLineBuilder, QpackIndexedPostBaseFieldLine,
+    QpackIndexedPostBaseFieldLineBuilder, QpackInsertCountIncrement,
+    QpackInsertCountIncrementBuilder, QpackInsertWithLiteralName,
+    QpackInsertWithLiteralNameBuilder, QpackInsertWithNameReference,
+    QpackInsertWithNameReferenceBuilder, QpackInteger, QpackIntegerBuildError, QpackIntegerBuilder,
+    QpackIntegerParseError, QpackLiteralNameFieldLine, QpackLiteralNameFieldLineBuilder,
+    QpackLiteralNameReferenceFieldLine, QpackLiteralNameReferenceFieldLineBuilder,
+    QpackLiteralPostBaseNameReferenceFieldLine, QpackLiteralPostBaseNameReferenceFieldLineBuilder,
+    QpackReadyBlockedStreamIter, QpackSectionAcknowledgment, QpackSectionAcknowledgmentBuilder,
+    QpackSetDynamicTableCapacity, QpackSetDynamicTableCapacityBuilder, QpackStaticTable,
+    QpackStreamCancellation, QpackStreamCancellationBuilder, QpackStringLiteral,
+    QpackStringLiteralBuildError, QpackStringLiteralBuilder, QpackStringLiteralParseError,
+};
 #[cfg(all(feature = "quic", feature = "tls"))]
 pub use quic::QuicTransportParametersTlsExtensionError;
 #[cfg(feature = "quic")]
