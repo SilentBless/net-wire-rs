@@ -53,6 +53,9 @@ pub mod ipv4;
 #[cfg(feature = "ipv6")]
 /// IPv6 packet views, semantic fields, and caller-buffer construction.
 pub mod ipv6;
+#[cfg(feature = "kcp")]
+/// KCP wire segment views and stateless scalar helpers.
+pub mod kcp;
 #[cfg(feature = "qpack")]
 /// Standalone QPACK prefixed integers, Huffman payloads, and string-literal views.
 pub mod qpack;
@@ -146,6 +149,13 @@ pub use ipv4::{
 pub use ipv6::{
     Ipv6Address, Ipv6NextHeader, Ipv6Packet, Ipv6PacketBuildError, Ipv6PacketBuilder,
     Ipv6PacketMut, Ipv6PayloadLength,
+};
+#[cfg(feature = "kcp")]
+pub use kcp::{
+    KCP_SEGMENT_HEADER_LEN, KcpCommand, KcpConversationId, KcpFragment, KcpKnownCommand,
+    KcpSegment, KcpSegmentBuildError, KcpSegmentBuilder, KcpSegmentIter, KcpSegmentMut,
+    KcpSegmentParseError, KcpSegments, KcpSegmentsParseError, KcpSequenceNumber, KcpTimestamp,
+    KcpUnacknowledged,
 };
 #[cfg(any(
     all(feature = "ipv4", feature = "tcp"),

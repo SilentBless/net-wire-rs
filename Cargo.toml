@@ -15,6 +15,7 @@ ipv4 = []
 ipv6 = []
 icmpv4 = []
 icmpv6 = []
+kcp = []
 udp = []
 tcp = []
 tls = []
@@ -58,6 +59,11 @@ required-features = ["icmpv6"]
 name = "udp"
 path = "tests/udp.rs"
 required-features = ["udp"]
+
+[[test]]
+name = "kcp"
+path = "tests/kcp.rs"
+required-features = ["kcp"]
 
 [[test]]
 name = "tcp"
