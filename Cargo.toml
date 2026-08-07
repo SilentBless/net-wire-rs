@@ -22,6 +22,7 @@ http1 = []
 http2 = []
 quic = []
 qpack = []
+http3 = ["quic", "qpack"]
 
 [[test]]
 name = "ethernet"
@@ -92,6 +93,11 @@ required-features = ["quic", "tls"]
 name = "qpack"
 path = "tests/qpack.rs"
 required-features = ["qpack"]
+
+[[test]]
+name = "http3"
+path = "tests/http3.rs"
+required-features = ["http3"]
 
 [lints.rust]
 unsafe_code = "deny"
