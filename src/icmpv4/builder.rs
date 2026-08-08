@@ -2,7 +2,8 @@
 
 use core::fmt;
 
-use super::{Icmpv4MessageMut, Icmpv4Type};
+use super::message::{HEADER_LENGTH, Icmpv4MessageMut};
+use super::types::Icmpv4Type;
 
 /// Failure to construct an ICMPv4 message in caller-provided storage.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -78,7 +79,7 @@ impl<'a> Icmpv4MessageBuilder<'a> {
             .message_type
             .ok_or(Icmpv4MessageBuildError::MissingType)?;
         let code = self.code.ok_or(Icmpv4MessageBuildError::MissingCode)?;
-        let length = 4usize
+        let length = HEADER_LENGTH
             .checked_add(self.body_length)
             .ok_or(Icmpv4MessageBuildError::MessageLengthTooLarge)?;
         if self.buffer.len() < length {

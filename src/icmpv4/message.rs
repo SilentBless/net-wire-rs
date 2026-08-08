@@ -1,9 +1,9 @@
 //! ICMPv4 checked borrowed message views.
 
-use super::Icmpv4Type;
-use crate::{ParseError, checksum};
+use super::types::Icmpv4Type;
+use crate::{checksum, error::ParseError};
 
-const HEADER: usize = 4;
+pub(super) const HEADER_LENGTH: usize = 4;
 
 /// A structurally validated ICMPv4 message.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -13,9 +13,9 @@ pub struct Icmpv4Message<'a> {
 impl<'a> Icmpv4Message<'a> {
     /// Parses a complete ICMPv4 message, without accepting or rejecting its checksum.
     pub fn parse(bytes: &'a [u8]) -> Result<Self, ParseError> {
-        if bytes.len() < HEADER {
+        if bytes.len() < HEADER_LENGTH {
             return Err(ParseError::Truncated {
-                minimum: HEADER,
+                minimum: HEADER_LENGTH,
                 available: bytes.len(),
             });
         }
@@ -35,7 +35,7 @@ impl<'a> Icmpv4Message<'a> {
     }
     /// Returns body bytes after the common header.
     pub fn body(&self) -> &'a [u8] {
-        &self.bytes[HEADER..]
+        &self.bytes[HEADER_LENGTH..]
     }
     /// Returns the represented message bytes.
     pub fn as_bytes(&self) -> &'a [u8] {
@@ -55,9 +55,9 @@ pub struct Icmpv4MessageMut<'a> {
 impl<'a> Icmpv4MessageMut<'a> {
     /// Parses a complete ICMPv4 message, without accepting or rejecting its checksum.
     pub fn parse(bytes: &'a mut [u8]) -> Result<Self, ParseError> {
-        if bytes.len() < HEADER {
+        if bytes.len() < HEADER_LENGTH {
             return Err(ParseError::Truncated {
-                minimum: HEADER,
+                minimum: HEADER_LENGTH,
                 available: bytes.len(),
             });
         }
@@ -80,11 +80,11 @@ impl<'a> Icmpv4MessageMut<'a> {
     }
     /// Returns body bytes.
     pub fn body(&self) -> &[u8] {
-        &self.bytes[HEADER..]
+        &self.bytes[HEADER_LENGTH..]
     }
     /// Returns mutable body bytes without updating the checksum.
     pub fn body_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes[HEADER..]
+        &mut self.bytes[HEADER_LENGTH..]
     }
     /// Returns represented bytes.
     pub fn as_bytes(&self) -> &[u8] {
