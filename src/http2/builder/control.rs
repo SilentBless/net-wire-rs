@@ -9,9 +9,7 @@ use super::super::frame::Http2Frame;
 use super::super::priority::Http2Priority;
 use super::super::settings::{Http2Setting, Http2Settings};
 use super::super::types::{Http2ErrorCode, Http2FrameType, Http2StreamId};
-
-const HEADER_LENGTH: usize = 9;
-const MAXIMUM_PAYLOAD: usize = 0x00ff_ffff;
+use super::raw::{FRAME_HEADER_LENGTH, MAXIMUM_PAYLOAD, write_frame_envelope};
 
 /// Builds a typed HTTP/2 SETTINGS frame in caller-owned storage.
 pub struct Http2SettingsBuilder<'a, 'b> {
@@ -61,13 +59,19 @@ impl<'a, 'b> Http2SettingsBuilder<'a, 'b> {
                 actual: payload_length,
             });
         }
-        let bytes = write_settings(
+        let bytes = write_frame_envelope(
             self.buffer,
-            self.flags,
-            self.settings,
             payload_length,
+            Http2FrameType::SETTINGS,
+            self.flags,
+            Http2StreamId::new(0),
             maximum_payload,
         )?;
+        for (index, setting) in self.settings.iter().copied().enumerate() {
+            let offset = FRAME_HEADER_LENGTH + index * 6;
+            bytes[offset..offset + 2].copy_from_slice(&setting.id().raw().to_be_bytes());
+            bytes[offset + 2..offset + 6].copy_from_slice(&setting.value().to_be_bytes());
+        }
         Ok(Http2Settings::from_validated(Http2Frame::from_validated(
             bytes,
         )))
@@ -120,15 +124,19 @@ impl<'a, 'b> Http2GoawayBuilder<'a, 'b> {
                 actual: self.additional_debug_data.len(),
             },
         )?;
-        let bytes = write_goaway(
+        let bytes = write_frame_envelope(
             self.buffer,
-            self.flags,
-            self.last_stream_id,
-            self.error_code,
-            self.additional_debug_data,
             payload_length,
+            Http2FrameType::GOAWAY,
+            self.flags,
+            Http2StreamId::new(0),
             maximum_payload,
         )?;
+        bytes[FRAME_HEADER_LENGTH..FRAME_HEADER_LENGTH + 4]
+            .copy_from_slice(&self.last_stream_id.raw().to_be_bytes());
+        bytes[FRAME_HEADER_LENGTH + 4..FRAME_HEADER_LENGTH + 8]
+            .copy_from_slice(&self.error_code.raw().to_be_bytes());
+        bytes[FRAME_HEADER_LENGTH + 8..].copy_from_slice(self.additional_debug_data);
         Ok(Http2Goaway::from_validated(
             Http2Frame::from_validated(bytes),
             self.last_stream_id,
@@ -172,22 +180,17 @@ impl<'a> Http2PriorityFrameBuilder<'a> {
         maximum_payload: usize,
     ) -> Result<Http2PriorityFrame<'a>, Http2BuildError> {
         validate_required_stream_id(self.stream_id)?;
-        let dependency = self.priority.raw_dependency();
-        let payload = [
-            dependency.to_be_bytes()[0],
-            dependency.to_be_bytes()[1],
-            dependency.to_be_bytes()[2],
-            dependency.to_be_bytes()[3],
-            self.priority.weight(),
-        ];
-        let bytes = write_fixed_frame(
+        let bytes = write_frame_envelope(
             self.buffer,
-            self.stream_id,
+            5,
             Http2FrameType::PRIORITY,
             self.flags,
-            &payload,
+            self.stream_id,
             maximum_payload,
         )?;
+        bytes[FRAME_HEADER_LENGTH..FRAME_HEADER_LENGTH + 4]
+            .copy_from_slice(&self.priority.raw_dependency().to_be_bytes());
+        bytes[FRAME_HEADER_LENGTH + 4] = self.priority.weight();
         Ok(Http2PriorityFrame::from_validated(
             Http2Frame::from_validated(bytes),
             self.priority,
@@ -230,15 +233,15 @@ impl<'a> Http2RstStreamBuilder<'a> {
         maximum_payload: usize,
     ) -> Result<Http2RstStream<'a>, Http2BuildError> {
         validate_required_stream_id(self.stream_id)?;
-        let payload = self.error_code.raw().to_be_bytes();
-        let bytes = write_fixed_frame(
+        let bytes = write_frame_envelope(
             self.buffer,
-            self.stream_id,
+            4,
             Http2FrameType::RST_STREAM,
             self.flags,
-            &payload,
+            self.stream_id,
             maximum_payload,
         )?;
+        bytes[FRAME_HEADER_LENGTH..].copy_from_slice(&self.error_code.raw().to_be_bytes());
         Ok(Http2RstStream::from_validated(
             Http2Frame::from_validated(bytes),
             self.error_code,
@@ -273,21 +276,21 @@ impl<'a, 'b> Http2PingBuilder<'a, 'b> {
         self,
         maximum_payload: usize,
     ) -> Result<Http2Ping<'a>, Http2BuildError> {
-        let bytes = write_fixed_frame(
+        let bytes = write_frame_envelope(
             self.buffer,
-            Http2StreamId::new(0),
+            8,
             Http2FrameType::PING,
             self.flags,
-            self.opaque_data,
+            Http2StreamId::new(0),
             maximum_payload,
         )?;
-        let opaque_data =
-            bytes[HEADER_LENGTH..]
-                .try_into()
-                .map_err(|_| Http2BuildError::BufferTooShort {
-                    required: HEADER_LENGTH + 8,
-                    available: bytes.len(),
-                })?;
+        bytes[FRAME_HEADER_LENGTH..].copy_from_slice(self.opaque_data);
+        let opaque_data = bytes[FRAME_HEADER_LENGTH..].try_into().map_err(|_| {
+            Http2BuildError::BufferTooShort {
+                required: FRAME_HEADER_LENGTH + 8,
+                available: bytes.len(),
+            }
+        })?;
         Ok(Http2Ping::from_validated(
             Http2Frame::from_validated(bytes),
             opaque_data,
@@ -338,15 +341,15 @@ impl<'a> Http2WindowUpdateBuilder<'a> {
         if self.increment.value() == 0 {
             return Err(Http2BuildError::ZeroWindowIncrement);
         }
-        let payload = self.increment.raw().to_be_bytes();
-        let bytes = write_fixed_frame(
+        let bytes = write_frame_envelope(
             self.buffer,
-            self.stream_id,
+            4,
             Http2FrameType::WINDOW_UPDATE,
             self.flags,
-            &payload,
+            self.stream_id,
             maximum_payload,
         )?;
+        bytes[FRAME_HEADER_LENGTH..].copy_from_slice(&self.increment.raw().to_be_bytes());
         Ok(Http2WindowUpdate::from_validated(
             Http2Frame::from_validated(bytes),
             self.increment,
@@ -362,118 +365,4 @@ fn validate_required_stream_id(stream_id: Http2StreamId) -> Result<(), Http2Buil
         return Err(Http2BuildError::ReservedStreamId);
     }
     Ok(())
-}
-
-fn write_settings<'a>(
-    buffer: &'a mut [u8],
-    flags: u8,
-    settings: &[Http2Setting],
-    payload_length: usize,
-    maximum_payload: usize,
-) -> Result<&'a [u8], Http2BuildError> {
-    let required = validate_connection_payload(buffer, payload_length, maximum_payload)?;
-    let bytes = &mut buffer[..required];
-    write_connection_header(bytes, payload_length, Http2FrameType::SETTINGS, flags);
-    for (index, setting) in settings.iter().copied().enumerate() {
-        let offset = HEADER_LENGTH + index * 6;
-        bytes[offset..offset + 2].copy_from_slice(&setting.id().raw().to_be_bytes());
-        bytes[offset + 2..offset + 6].copy_from_slice(&setting.value().to_be_bytes());
-    }
-    Ok(bytes)
-}
-
-fn write_goaway<'a>(
-    buffer: &'a mut [u8],
-    flags: u8,
-    last_stream_id: Http2StreamId,
-    error_code: Http2ErrorCode,
-    additional_debug_data: &[u8],
-    payload_length: usize,
-    maximum_payload: usize,
-) -> Result<&'a [u8], Http2BuildError> {
-    let required = validate_connection_payload(buffer, payload_length, maximum_payload)?;
-    let bytes = &mut buffer[..required];
-    write_connection_header(bytes, payload_length, Http2FrameType::GOAWAY, flags);
-    bytes[HEADER_LENGTH..HEADER_LENGTH + 4].copy_from_slice(&last_stream_id.raw().to_be_bytes());
-    bytes[HEADER_LENGTH + 4..HEADER_LENGTH + 8].copy_from_slice(&error_code.raw().to_be_bytes());
-    bytes[HEADER_LENGTH + 8..].copy_from_slice(additional_debug_data);
-    Ok(bytes)
-}
-
-fn validate_connection_payload(
-    buffer: &[u8],
-    payload_length: usize,
-    maximum_payload: usize,
-) -> Result<usize, Http2BuildError> {
-    let maximum_payload = maximum_payload.min(MAXIMUM_PAYLOAD);
-    if payload_length > maximum_payload {
-        return Err(Http2BuildError::PayloadTooLarge {
-            maximum: maximum_payload,
-            actual: payload_length,
-        });
-    }
-    let required =
-        HEADER_LENGTH
-            .checked_add(payload_length)
-            .ok_or(Http2BuildError::PayloadTooLarge {
-                maximum: maximum_payload,
-                actual: payload_length,
-            })?;
-    if buffer.len() < required {
-        return Err(Http2BuildError::BufferTooShort {
-            required,
-            available: buffer.len(),
-        });
-    }
-    Ok(required)
-}
-
-fn write_connection_header(
-    bytes: &mut [u8],
-    payload_length: usize,
-    frame_type: Http2FrameType,
-    flags: u8,
-) {
-    let payload_length = payload_length as u32;
-    bytes[0] = (payload_length >> 16) as u8;
-    bytes[1] = (payload_length >> 8) as u8;
-    bytes[2] = payload_length as u8;
-    bytes[3] = frame_type.raw();
-    bytes[4] = flags;
-    bytes[5..HEADER_LENGTH].fill(0);
-}
-
-fn write_fixed_frame<'a>(
-    buffer: &'a mut [u8],
-    stream_id: Http2StreamId,
-    frame_type: Http2FrameType,
-    flags: u8,
-    payload: &[u8],
-    maximum_payload: usize,
-) -> Result<&'a [u8], Http2BuildError> {
-    let maximum_payload = maximum_payload.min(MAXIMUM_PAYLOAD);
-    if payload.len() > maximum_payload {
-        return Err(Http2BuildError::PayloadTooLarge {
-            maximum: maximum_payload,
-            actual: payload.len(),
-        });
-    }
-    let required = HEADER_LENGTH + payload.len();
-    if buffer.len() < required {
-        return Err(Http2BuildError::BufferTooShort {
-            required,
-            available: buffer.len(),
-        });
-    }
-
-    let bytes = &mut buffer[..required];
-    let payload_length = payload.len() as u32;
-    bytes[0] = (payload_length >> 16) as u8;
-    bytes[1] = (payload_length >> 8) as u8;
-    bytes[2] = payload_length as u8;
-    bytes[3] = frame_type.raw();
-    bytes[4] = flags;
-    bytes[5..HEADER_LENGTH].copy_from_slice(&stream_id.raw().to_be_bytes());
-    bytes[HEADER_LENGTH..].copy_from_slice(payload);
-    Ok(bytes)
 }
