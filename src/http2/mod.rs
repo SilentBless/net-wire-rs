@@ -1,12 +1,17 @@
 //! Raw, allocation-free HTTP/2 wire views and caller-buffer construction.
 
 mod builder;
+mod control;
+mod data;
 mod error;
 mod frame;
+mod headers;
 /// RFC 7541 HPACK wire primitives.
 pub mod hpack;
+mod layout;
+mod priority;
 mod sequence;
-mod standard;
+mod settings;
 mod types;
 
 pub use builder::{
@@ -14,8 +19,14 @@ pub use builder::{
     Http2HeadersBuilder, Http2PingBuilder, Http2PriorityFrameBuilder, Http2PushPromiseBuilder,
     Http2RstStreamBuilder, Http2SettingsBuilder, Http2WindowUpdateBuilder,
 };
+pub use control::{
+    Http2Goaway, Http2Ping, Http2PriorityFrame, Http2RstStream, Http2WindowIncrement,
+    Http2WindowUpdate,
+};
+pub use data::Http2Data;
 pub use error::{Http2BuildError, Http2ParseError, Http2StreamIdError};
 pub use frame::{HTTP2_CLIENT_PREFACE, Http2ClientPreface, Http2Frame, Http2FrameMut};
+pub use headers::{Http2Continuation, Http2Headers, Http2PushPromise};
 pub use hpack::{
     HPACK_STATIC_TABLE_LEN, HpackBlockDecoder, HpackBlockEncoder, HpackDecodeError,
     HpackDecodeStep, HpackDecodedField, HpackDecodedFieldMode, HpackDecoderContext,
@@ -30,13 +41,9 @@ pub use hpack::{
     HpackStaticTable, HpackStringLiteral, HpackStringLiteralBuildError, HpackStringLiteralBuilder,
     HpackStringLiteralParseError,
 };
+pub use priority::Http2Priority;
 pub use sequence::{
     Http2HeaderBlockFragment, Http2HeaderBlockSequence, Http2HeaderBlockSequenceError,
 };
-pub use standard::{
-    Http2Continuation, Http2Data, Http2Goaway, Http2Headers, Http2Ping, Http2Priority,
-    Http2PriorityFrame, Http2PushPromise, Http2RstStream, Http2Setting, Http2Settings,
-    Http2SettingsIter, Http2WindowIncrement, Http2WindowUpdate,
-};
-
+pub use settings::{Http2Setting, Http2Settings, Http2SettingsIter};
 pub use types::{Http2ErrorCode, Http2FrameType, Http2SettingId, Http2StreamId};

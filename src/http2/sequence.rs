@@ -2,9 +2,10 @@
 
 use core::fmt;
 
-use super::{
-    Http2Continuation, Http2Frame, Http2FrameType, Http2Headers, Http2ParseError, Http2PushPromise,
-};
+use super::error::Http2ParseError;
+use super::frame::Http2Frame;
+use super::headers::{Http2Continuation, Http2Headers, Http2PushPromise};
+use super::types::Http2FrameType;
 
 const END_HEADERS: u8 = 0x04;
 

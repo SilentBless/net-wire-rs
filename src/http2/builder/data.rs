@@ -1,9 +1,11 @@
 //! Atomic caller-buffer construction of standard HTTP/2 DATA, HEADERS, PUSH_PROMISE, and CONTINUATION frames.
 
-use super::super::{
-    Http2BuildError, Http2Continuation, Http2Data, Http2Frame, Http2FrameType, Http2Headers,
-    Http2Priority, Http2PushPromise, Http2StreamId,
-};
+use super::super::data::Http2Data;
+use super::super::error::Http2BuildError;
+use super::super::frame::Http2Frame;
+use super::super::headers::{Http2Continuation, Http2Headers, Http2PushPromise};
+use super::super::priority::Http2Priority;
+use super::super::types::{Http2FrameType, Http2StreamId};
 
 const HEADER_LENGTH: usize = 9;
 const MAXIMUM_PAYLOAD: usize = 0x00ff_ffff;

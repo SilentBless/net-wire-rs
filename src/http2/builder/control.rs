@@ -1,10 +1,14 @@
 //! Atomic caller-buffer construction of HTTP/2 control frames.
 
-use super::super::{
-    Http2BuildError, Http2ErrorCode, Http2Frame, Http2FrameType, Http2Goaway, Http2Ping,
-    Http2Priority, Http2PriorityFrame, Http2RstStream, Http2Setting, Http2Settings, Http2StreamId,
-    Http2WindowIncrement, Http2WindowUpdate,
+use super::super::control::{
+    Http2Goaway, Http2Ping, Http2PriorityFrame, Http2RstStream, Http2WindowIncrement,
+    Http2WindowUpdate,
 };
+use super::super::error::Http2BuildError;
+use super::super::frame::Http2Frame;
+use super::super::priority::Http2Priority;
+use super::super::settings::{Http2Setting, Http2Settings};
+use super::super::types::{Http2ErrorCode, Http2FrameType, Http2StreamId};
 
 const HEADER_LENGTH: usize = 9;
 const MAXIMUM_PAYLOAD: usize = 0x00ff_ffff;
