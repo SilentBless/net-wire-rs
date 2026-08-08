@@ -1,11 +1,13 @@
 //! Bounded lifecycle state for incoming HTTP/3 peer unidirectional streams.
 
+use core::fmt;
+
 use crate::quic::QuicVarIntLen;
 
-use super::{
-    Http3EndpointRole, Http3PeerUniStreamError, Http3PushId, Http3StreamId, Http3StreamType,
-    Http3UniStreamHeader, Http3UniStreamKind,
-};
+use super::super::codepoints::{Http3ErrorCode, Http3StreamType};
+use super::super::enums::stream::{Http3EndpointRole, Http3UniStreamKind};
+use super::super::ids::{Http3PushId, Http3StreamId};
+use super::uni::Http3UniStreamHeader;
 
 /// A peer unidirectional stream kind that HTTP/3 requires exactly once.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -55,6 +57,90 @@ pub enum Http3PeerUniStreamEvent {
         stream_type: Http3StreamType,
     },
 }
+
+/// Failure while registering or closing a peer HTTP/3 unidirectional stream.
+///
+/// [`Self::InvalidPeerUnidirectionalStream`] is a local integration error. The remaining
+/// variants are peer-caused HTTP/3 connection errors.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Http3PeerUniStreamError {
+    /// The supplied stream ID is not a valid peer-initiated unidirectional QUIC stream ID.
+    InvalidPeerUnidirectionalStream {
+        /// Invalid raw QUIC stream identifier.
+        stream_id: Http3StreamId,
+    },
+    /// The peer opened a second stream for a required unique critical-stream kind.
+    DuplicateCriticalStream {
+        /// Duplicated critical-stream kind.
+        kind: Http3CriticalUniStreamKind,
+        /// Previously registered peer stream identifier.
+        existing: Http3StreamId,
+        /// Newly received duplicate peer stream identifier.
+        received: Http3StreamId,
+    },
+    /// A client opened a server-only push stream.
+    ClientInitiatedPushStream {
+        /// Client-initiated QUIC stream identifier.
+        stream_id: Http3StreamId,
+        /// Push ID carried by the invalid stream header.
+        push_id: Http3PushId,
+    },
+    /// A peer closed or reset a registered critical stream.
+    ClosedCriticalStream {
+        /// Closed critical-stream kind.
+        kind: Http3CriticalUniStreamKind,
+        /// Closed peer stream identifier.
+        stream_id: Http3StreamId,
+    },
+}
+
+impl Http3PeerUniStreamError {
+    /// Returns the HTTP/3 application error code for a peer-caused failure.
+    pub const fn error_code(self) -> Option<Http3ErrorCode> {
+        match self {
+            Self::InvalidPeerUnidirectionalStream { .. } => None,
+            Self::DuplicateCriticalStream { .. } | Self::ClientInitiatedPushStream { .. } => {
+                Some(Http3ErrorCode::STREAM_CREATION_ERROR)
+            }
+            Self::ClosedCriticalStream { .. } => Some(Http3ErrorCode::CLOSED_CRITICAL_STREAM),
+        }
+    }
+}
+
+impl fmt::Display for Http3PeerUniStreamError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidPeerUnidirectionalStream { stream_id } => write!(
+                f,
+                "stream ID {} is not a peer-initiated unidirectional QUIC stream",
+                stream_id.value()
+            ),
+            Self::DuplicateCriticalStream {
+                kind,
+                existing,
+                received,
+            } => write!(
+                f,
+                "HTTP/3 {kind:?} critical stream {} duplicates stream {}",
+                received.value(),
+                existing.value()
+            ),
+            Self::ClientInitiatedPushStream { stream_id, push_id } => write!(
+                f,
+                "client-initiated HTTP/3 push stream {} carries Push ID {}",
+                stream_id.value(),
+                push_id.value()
+            ),
+            Self::ClosedCriticalStream { kind, stream_id } => write!(
+                f,
+                "HTTP/3 {kind:?} critical stream {} was closed",
+                stream_id.value()
+            ),
+        }
+    }
+}
+
+impl core::error::Error for Http3PeerUniStreamError {}
 
 /// Bounded state for incoming peer HTTP/3 unidirectional critical streams.
 ///

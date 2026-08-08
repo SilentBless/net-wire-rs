@@ -1,9 +1,13 @@
 //! Incoming HTTP/3 request, response, and push-message frame sequencing.
 
-use super::{
-    Http3Data, Http3Frame, Http3FramePayloadParseError, Http3FrameType, Http3Headers,
-    Http3MessageStreamError, Http3PushPromise,
-};
+use core::fmt;
+
+use super::super::codepoints::{Http3ErrorCode, Http3FrameType};
+use super::super::enums::message::Http3HeadersKind;
+use super::super::frame::Http3Frame;
+use super::super::frame::Http3FramePayloadParseError;
+use super::super::frame::{Http3Data, Http3Headers, Http3PushPromise};
+use super::super::headers::Http3DecodedHeaderSection;
 
 /// The direction and message role of an incoming HTTP/3 stream.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -14,19 +18,6 @@ pub enum Http3MessageStreamKind {
     Response,
     /// An inbound server response on a client's push stream.
     Push,
-}
-
-/// The semantic role assigned to a QPACK-decoded HTTP/3 header section.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Http3HeaderSectionKind {
-    /// The initial header section of a request.
-    Request,
-    /// A non-final response header section.
-    InformationalResponse,
-    /// The final response header section.
-    FinalResponse,
-    /// A trailing header section following message content.
-    Trailers,
 }
 
 /// The current position in an incoming HTTP/3 message.
@@ -40,6 +31,106 @@ pub enum Http3MessagePosition {
     Content,
     /// A trailing header section was accepted.
     Trailers,
+}
+
+/// Failure to sequence a received frame on an HTTP/3 message stream.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Http3MessageStreamError {
+    /// A frame is forbidden in the current message position or stream kind.
+    UnexpectedFrame {
+        /// Forbidden frame type.
+        frame_type: Http3FrameType,
+        /// Message position at which the frame was received.
+        position: Http3MessagePosition,
+    },
+    /// An allowed known frame has a malformed intrinsic payload.
+    FramePayload {
+        /// Type of the frame with the malformed payload.
+        frame_type: Http3FrameType,
+        /// Intrinsic payload parsing failure.
+        error: Http3FramePayloadParseError,
+    },
+    /// A QPACK-decoded header section is invalid for the current message position.
+    InvalidHeaderSection {
+        /// Incoming message stream kind.
+        stream_kind: Http3MessageStreamKind,
+        /// Message position at which HEADERS was received.
+        position: Http3MessagePosition,
+        /// Validated QPACK-decoded header-section role.
+        section_kind: Http3HeadersKind,
+    },
+    /// The stream ended before its initial or final response header section was accepted.
+    IncompleteMessage {
+        /// Incoming message stream kind.
+        stream_kind: Http3MessageStreamKind,
+        /// Message position at stream end.
+        position: Http3MessagePosition,
+    },
+}
+
+impl Http3MessageStreamError {
+    /// Returns the HTTP/3 application error code required by this failure.
+    pub const fn error_code(self) -> Http3ErrorCode {
+        match self {
+            Self::UnexpectedFrame { .. } => Http3ErrorCode::FRAME_UNEXPECTED,
+            Self::FramePayload { .. } => Http3ErrorCode::FRAME_ERROR,
+            Self::InvalidHeaderSection { .. } => Http3ErrorCode::MESSAGE_ERROR,
+            Self::IncompleteMessage {
+                stream_kind: Http3MessageStreamKind::Request,
+                ..
+            } => Http3ErrorCode::REQUEST_INCOMPLETE,
+            Self::IncompleteMessage {
+                stream_kind: Http3MessageStreamKind::Response | Http3MessageStreamKind::Push,
+                ..
+            } => Http3ErrorCode::MESSAGE_ERROR,
+        }
+    }
+}
+
+impl fmt::Display for Http3MessageStreamError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnexpectedFrame {
+                frame_type,
+                position,
+            } => write!(
+                f,
+                "HTTP/3 frame type {} is unexpected at message position {position:?}",
+                frame_type.value()
+            ),
+            Self::FramePayload { frame_type, error } => write!(
+                f,
+                "HTTP/3 message frame type {} payload: {error}",
+                frame_type.value()
+            ),
+            Self::InvalidHeaderSection {
+                stream_kind,
+                position,
+                section_kind,
+            } => write!(
+                f,
+                "HTTP/3 {section_kind:?} header section is invalid for {stream_kind:?} at message position {position:?}"
+            ),
+            Self::IncompleteMessage {
+                stream_kind,
+                position,
+            } => write!(
+                f,
+                "HTTP/3 {stream_kind:?} message is incomplete at message position {position:?}"
+            ),
+        }
+    }
+}
+
+impl core::error::Error for Http3MessageStreamError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::FramePayload { error, .. } => Some(error),
+            Self::UnexpectedFrame { .. }
+            | Self::InvalidHeaderSection { .. }
+            | Self::IncompleteMessage { .. } => None,
+        }
+    }
 }
 
 /// Bounded state for receiving one incoming HTTP/3 request, response, or push message.
@@ -161,13 +252,15 @@ impl<'state, 'wire> Http3PendingHeaders<'state, 'wire> {
         self.headers
     }
 
-    /// Accepts the QPACK-decoded header-section role and commits the corresponding transition.
+    /// Accepts a validated QPACK-decoded header section and commits the corresponding transition.
     ///
+    /// The section is consumed semantically but remains caller-owned for message-content handling.
     /// Invalid classifications leave the stream state unchanged.
     pub fn accept(
         self,
-        section_kind: Http3HeaderSectionKind,
+        section: &Http3DecodedHeaderSection<'_>,
     ) -> Result<Http3Headers<'wire>, Http3MessageStreamError> {
+        let section_kind = section.kind();
         let next_position = next_position(self.state.kind, self.state.position, section_kind)?;
         self.state.position = next_position;
         Ok(self.headers)
@@ -177,33 +270,33 @@ impl<'state, 'wire> Http3PendingHeaders<'state, 'wire> {
 const fn next_position(
     stream_kind: Http3MessageStreamKind,
     position: Http3MessagePosition,
-    section_kind: Http3HeaderSectionKind,
+    section_kind: Http3HeadersKind,
 ) -> Result<Http3MessagePosition, Http3MessageStreamError> {
     match (stream_kind, position, section_kind) {
         (
             Http3MessageStreamKind::Request,
             Http3MessagePosition::BeforeHeaders,
-            Http3HeaderSectionKind::Request,
+            Http3HeadersKind::Request,
         ) => Ok(Http3MessagePosition::Content),
         (
             Http3MessageStreamKind::Request,
             Http3MessagePosition::Content,
-            Http3HeaderSectionKind::Trailers,
+            Http3HeadersKind::Trailers,
         ) => Ok(Http3MessagePosition::Trailers),
         (
             Http3MessageStreamKind::Response | Http3MessageStreamKind::Push,
             Http3MessagePosition::BeforeFinalResponse,
-            Http3HeaderSectionKind::InformationalResponse,
+            Http3HeadersKind::InformationalResponse,
         ) => Ok(Http3MessagePosition::BeforeFinalResponse),
         (
             Http3MessageStreamKind::Response | Http3MessageStreamKind::Push,
             Http3MessagePosition::BeforeFinalResponse,
-            Http3HeaderSectionKind::FinalResponse,
+            Http3HeadersKind::FinalResponse,
         ) => Ok(Http3MessagePosition::Content),
         (
             Http3MessageStreamKind::Response | Http3MessageStreamKind::Push,
             Http3MessagePosition::Content,
-            Http3HeaderSectionKind::Trailers,
+            Http3HeadersKind::Trailers,
         ) => Ok(Http3MessagePosition::Trailers),
         _ => Err(Http3MessageStreamError::InvalidHeaderSection {
             stream_kind,

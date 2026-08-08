@@ -1,6 +1,306 @@
-//! Semantic interpretation of validated HTTP/3 SETTINGS payloads.
+//! HTTP/3 SETTINGS wire views, construction, and semantic interpretation.
 
-use super::{Http3SettingId, Http3Settings, Http3SettingsSemanticError};
+use core::fmt;
+use core::iter::FusedIterator;
+
+use crate::quic::QuicVarInt;
+
+use super::codepoints::{Http3FrameType, Http3SettingId};
+use super::frame::{
+    Http3Frame, Http3FrameBuilder, Http3FramePayloadBuildError, Http3FramePayloadField,
+    Http3FramePayloadParseError, add_payload, encode_varint, parse_payload_varint, validate_type,
+};
+
+/// A raw-preserving HTTP/3 SETTINGS parameter.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Http3Setting<'a> {
+    bytes: &'a [u8],
+    id: QuicVarInt<'a>,
+    value: QuicVarInt<'a>,
+}
+
+impl<'a> Http3Setting<'a> {
+    /// Returns the exact encoded setting bytes.
+    pub const fn as_bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+
+    /// Returns the raw-preserving setting identifier.
+    pub const fn id(&self) -> Http3SettingId {
+        Http3SettingId::new(self.id.value())
+    }
+
+    /// Returns the exact setting identifier variable-length integer.
+    pub const fn id_varint(&self) -> QuicVarInt<'a> {
+        self.id
+    }
+
+    /// Returns the decoded setting value.
+    pub const fn value(&self) -> u64 {
+        self.value.value()
+    }
+
+    /// Returns the exact setting value variable-length integer.
+    pub const fn value_varint(&self) -> QuicVarInt<'a> {
+        self.value
+    }
+}
+
+/// A validated borrowed HTTP/3 SETTINGS frame.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Http3Settings<'a> {
+    frame: Http3Frame<'a>,
+}
+
+impl<'a> Http3Settings<'a> {
+    /// Assembles a SETTINGS view from a builder-validated frame.
+    const fn from_validated(frame: Http3Frame<'a>) -> Self {
+        Self { frame }
+    }
+
+    /// Parses the first complete SETTINGS frame, enforcing the caller-provided payload maximum.
+    pub fn parse(
+        bytes: &'a [u8],
+        maximum_payload: usize,
+    ) -> Result<Self, Http3FramePayloadParseError> {
+        Self::from_frame(
+            Http3Frame::parse(bytes, maximum_payload)
+                .map_err(Http3FramePayloadParseError::Frame)?,
+        )
+    }
+
+    /// Validates every SETTINGS identifier and value in wire order.
+    pub fn from_frame(frame: Http3Frame<'a>) -> Result<Self, Http3FramePayloadParseError> {
+        validate_type(frame, Http3FrameType::SETTINGS)?;
+        validate_settings(frame.payload())?;
+        Ok(Self { frame })
+    }
+
+    /// Returns the validated raw frame.
+    pub const fn frame(&self) -> Http3Frame<'a> {
+        self.frame
+    }
+
+    /// Returns the exact represented frame bytes.
+    pub const fn as_bytes(&self) -> &'a [u8] {
+        self.frame.as_bytes()
+    }
+
+    /// Iterates validated SETTINGS parameters in wire order without combining duplicates.
+    pub fn settings(&self) -> Http3SettingsIter<'a> {
+        Http3SettingsIter {
+            bytes: self.frame.payload(),
+        }
+    }
+
+    /// Strictly validates SETTINGS semantics and returns effective known peer settings.
+    ///
+    /// Unknown extension settings are ignored in the returned snapshot. This rejects duplicate
+    /// identifiers even though HTTP/3 permits receivers to choose that policy.
+    pub fn validate_semantics(self) -> Result<Http3PeerSettings, Http3SettingsSemanticError> {
+        validate(self)
+    }
+}
+
+/// Iterator over eagerly validated HTTP/3 SETTINGS parameters.
+#[derive(Clone, Debug)]
+pub struct Http3SettingsIter<'a> {
+    bytes: &'a [u8],
+}
+
+impl<'a> Iterator for Http3SettingsIter<'a> {
+    type Item = Http3Setting<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (setting, remaining) = parse_setting(self.bytes)?;
+        self.bytes = remaining;
+        Some(setting)
+    }
+}
+
+impl FusedIterator for Http3SettingsIter<'_> {}
+
+fn validate_settings(payload: &[u8]) -> Result<(), Http3FramePayloadParseError> {
+    let mut remaining = payload;
+    while !remaining.is_empty() {
+        let identifier_offset = payload.len() - remaining.len();
+        let identifier = parse_payload_varint(
+            remaining,
+            Http3FramePayloadField::SettingIdentifier,
+            identifier_offset,
+        )?;
+        remaining = &remaining[identifier.byte_len()..];
+
+        let value_offset = payload.len() - remaining.len();
+        let value = parse_payload_varint(
+            remaining,
+            Http3FramePayloadField::SettingValue,
+            value_offset,
+        )?;
+        remaining = &remaining[value.byte_len()..];
+    }
+    Ok(())
+}
+
+fn parse_setting<'a>(bytes: &'a [u8]) -> Option<(Http3Setting<'a>, &'a [u8])> {
+    let id = QuicVarInt::parse(bytes).ok()?;
+    let after_id = &bytes[id.byte_len()..];
+    let value = QuicVarInt::parse(after_id).ok()?;
+    let remaining = &after_id[value.byte_len()..];
+    let setting = Http3Setting {
+        bytes: &bytes[..bytes.len() - remaining.len()],
+        id,
+        value,
+    };
+    Some((setting, remaining))
+}
+
+/// A raw-preserving outbound HTTP/3 SETTINGS identifier and value.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Http3SettingValue {
+    id: Http3SettingId,
+    value: u64,
+}
+
+impl Http3SettingValue {
+    /// Creates an outbound SETTINGS entry without restricting extension identifiers.
+    pub const fn new(id: Http3SettingId, value: u64) -> Self {
+        Self { id, value }
+    }
+
+    /// Returns the raw SETTINGS identifier.
+    pub const fn id(self) -> Http3SettingId {
+        self.id
+    }
+
+    /// Returns the decoded SETTINGS value.
+    pub const fn value(self) -> u64 {
+        self.value
+    }
+}
+
+/// Builds a typed HTTP/3 SETTINGS frame in caller-owned storage.
+pub struct Http3SettingsBuilder<'output, 'scratch, 'settings> {
+    destination: &'output mut [u8],
+    payload_scratch: &'scratch mut [u8],
+    settings: &'settings [Http3SettingValue],
+}
+
+impl<'output, 'scratch, 'settings> Http3SettingsBuilder<'output, 'scratch, 'settings> {
+    /// Creates a SETTINGS builder using caller-owned payload workspace.
+    ///
+    /// Workspace contents are unspecified after an error that occurs after its capacity has been
+    /// validated. Destination bytes remain unchanged on every error.
+    pub fn new(
+        destination: &'output mut [u8],
+        payload_scratch: &'scratch mut [u8],
+        settings: &'settings [Http3SettingValue],
+    ) -> Self {
+        Self {
+            destination,
+            payload_scratch,
+            settings,
+        }
+    }
+
+    /// Canonically encodes semantically valid SETTINGS and atomically writes their frame.
+    pub fn build(self) -> Result<Http3Settings<'output>, Http3FramePayloadBuildError> {
+        let payload_length = validate_outbound_settings(self.settings)?;
+        if self.payload_scratch.len() < payload_length {
+            return Err(Http3FramePayloadBuildError::SettingsScratchTooShort {
+                required: payload_length,
+                available: self.payload_scratch.len(),
+            });
+        }
+
+        let mut offset = 0;
+        for setting in self.settings {
+            let id = encode_varint(
+                setting.id.value(),
+                Http3FramePayloadField::SettingIdentifier,
+            )?;
+            let value = encode_varint(setting.value, Http3FramePayloadField::SettingValue)?;
+            let id_end = offset + id.byte_len();
+            self.payload_scratch[offset..id_end].copy_from_slice(id.bytes());
+            let value_end = id_end + value.byte_len();
+            self.payload_scratch[id_end..value_end].copy_from_slice(value.bytes());
+            offset = value_end;
+        }
+
+        let frame = Http3FrameBuilder::new(
+            self.destination,
+            Http3FrameType::SETTINGS,
+            &self.payload_scratch[..payload_length],
+        )
+        .build()
+        .map_err(Http3FramePayloadBuildError::Frame)?;
+        Ok(Http3Settings::from_validated(frame))
+    }
+}
+
+fn validate_outbound_settings(
+    settings: &[Http3SettingValue],
+) -> Result<usize, Http3FramePayloadBuildError> {
+    let mut payload_length = 0;
+    for (index, setting) in settings.iter().copied().enumerate() {
+        if prohibited_setting(setting.id) {
+            return Err(Http3FramePayloadBuildError::ProhibitedSetting { id: setting.id });
+        }
+        for previous in &settings[..index] {
+            if previous.id == setting.id {
+                return Err(Http3FramePayloadBuildError::DuplicateSetting { id: setting.id });
+            }
+        }
+        let id = encode_varint(
+            setting.id.value(),
+            Http3FramePayloadField::SettingIdentifier,
+        )?;
+        let value = encode_varint(setting.value, Http3FramePayloadField::SettingValue)?;
+        payload_length = add_payload(payload_length, id.byte_len(), Some(index))?;
+        payload_length = add_payload(payload_length, value.byte_len(), Some(index))?;
+    }
+    Ok(payload_length)
+}
+
+/// Failure to strictly validate HTTP/3 SETTINGS semantics.
+///
+/// Offsets are byte offsets of setting identifiers from the start of the SETTINGS payload.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Http3SettingsSemanticError {
+    /// A SETTINGS identifier repeats an earlier identifier.
+    DuplicateSetting {
+        /// Repeated raw setting identifier.
+        id: Http3SettingId,
+        /// Byte offset of this setting identifier within the SETTINGS payload.
+        offset: usize,
+    },
+    /// A SETTINGS identifier is reserved for HTTP/2.
+    ProhibitedSetting {
+        /// Reserved raw setting identifier.
+        id: Http3SettingId,
+        /// Byte offset of this setting identifier within the SETTINGS payload.
+        offset: usize,
+    },
+}
+
+impl fmt::Display for Http3SettingsSemanticError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DuplicateSetting { id, offset } => write!(
+                f,
+                "HTTP/3 SETTINGS identifier {} at payload offset {offset} duplicates an earlier identifier",
+                id.value()
+            ),
+            Self::ProhibitedSetting { id, offset } => write!(
+                f,
+                "HTTP/3 SETTINGS identifier {} at payload offset {offset} is reserved for HTTP/2",
+                id.value()
+            ),
+        }
+    }
+}
+
+impl core::error::Error for Http3SettingsSemanticError {}
 
 /// Validates SETTINGS semantics and returns the effective known peer settings.
 pub(super) fn validate(

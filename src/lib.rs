@@ -112,27 +112,6 @@ pub use http2::{
     Http2SettingsBuilder, Http2SettingsIter, Http2StreamId, Http2StreamIdError,
     Http2WindowIncrement, Http2WindowUpdate, Http2WindowUpdateBuilder,
 };
-#[cfg(feature = "http3")]
-pub use http3::{
-    Http3CancelPush, Http3CancelPushBuilder, Http3ControlFrame, Http3ControlStreamError,
-    Http3ControlStreamState, Http3CriticalUniStreamKind, Http3Data, Http3DataBuilder,
-    Http3DecodedHeaderSection, Http3DecodedPushPromise, Http3EndpointRole, Http3ErrorCode,
-    Http3Frame, Http3FrameBuildError, Http3FrameBuilder, Http3FrameMut, Http3FrameParseError,
-    Http3FramePayloadBuildError, Http3FramePayloadField, Http3FramePayloadParseError,
-    Http3FrameType, Http3Goaway, Http3GoawayBuilder, Http3HeaderSectionContext,
-    Http3HeaderSectionError, Http3HeaderSectionKind, Http3Headers, Http3HeadersBuilder,
-    Http3MaxPushId, Http3MaxPushIdBuilder, Http3MessageContentDisposition,
-    Http3MessageContentError, Http3MessageContentKind, Http3MessageContentOperation,
-    Http3MessageContentState, Http3MessageFrame, Http3MessagePosition, Http3MessageStreamError,
-    Http3MessageStreamKind, Http3MessageStreamState, Http3PeerSettings, Http3PeerUniStreamError,
-    Http3PeerUniStreamEvent, Http3PeerUniStreamState, Http3PendingHeaders, Http3PushId,
-    Http3PushPromise, Http3PushPromiseBuilder, Http3QpackFieldSectionError,
-    Http3ResponseRequestContext, Http3Setting, Http3SettingId, Http3SettingValue, Http3Settings,
-    Http3SettingsBuilder, Http3SettingsIter, Http3SettingsSemanticError, Http3StreamId,
-    Http3StreamType, Http3UniStreamBuildError, Http3UniStreamField, Http3UniStreamHeader,
-    Http3UniStreamHeaderBuilder, Http3UniStreamKind, Http3UniStreamParseError,
-    analyze_decoded_header_section, analyze_decoded_push_promise,
-};
 #[cfg(feature = "icmpv4")]
 pub use icmpv4::{
     Icmpv4Message, Icmpv4MessageBuildError, Icmpv4MessageBuilder, Icmpv4MessageMut, Icmpv4Type,

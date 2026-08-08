@@ -1,10 +1,14 @@
 //! Incoming HTTP/3 control-stream frame sequencing.
 
-use super::{
-    Http3CancelPush, Http3ControlStreamError, Http3Frame, Http3FramePayloadParseError,
-    Http3FrameType, Http3Goaway, Http3MaxPushId, Http3PeerSettings, Http3PushId, Http3Settings,
-};
+use core::fmt;
 
+use super::super::codepoints::{Http3ErrorCode, Http3FrameType};
+use super::super::enums::stream::Http3EndpointRole;
+use super::super::frame::Http3Frame;
+use super::super::frame::Http3FramePayloadParseError;
+use super::super::frame::{Http3CancelPush, Http3Goaway, Http3MaxPushId};
+use super::super::ids::Http3PushId;
+use super::super::settings::{Http3PeerSettings, Http3Settings, Http3SettingsSemanticError};
 /// A validated incoming HTTP/3 control-stream frame.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Http3ControlFrame<'a> {
@@ -25,13 +29,113 @@ pub enum Http3ControlFrame<'a> {
     Unknown(Http3Frame<'a>),
 }
 
-/// The local endpoint role used to interpret control-stream frame semantics.
+/// Failure to sequence a received frame on an HTTP/3 control stream.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Http3EndpointRole {
-    /// The local endpoint is an HTTP/3 client.
-    Client,
-    /// The local endpoint is an HTTP/3 server.
-    Server,
+pub enum Http3ControlStreamError {
+    /// The first control-stream frame was not SETTINGS.
+    MissingSettings {
+        /// Actual first frame type.
+        actual: Http3FrameType,
+    },
+    /// A frame is forbidden in its current control-stream position or endpoint role.
+    UnexpectedFrame {
+        /// Forbidden frame type.
+        frame_type: Http3FrameType,
+    },
+    /// A known control-stream frame has a malformed intrinsic payload.
+    FramePayload {
+        /// Type of the frame with the malformed payload.
+        frame_type: Http3FrameType,
+        /// Intrinsic payload parsing failure.
+        error: Http3FramePayloadParseError,
+    },
+    /// SETTINGS failed strict semantic validation.
+    Settings(Http3SettingsSemanticError),
+    /// A client received GOAWAY with a non-client-bidirectional stream identifier.
+    InvalidGoawayStreamId {
+        /// Invalid GOAWAY identifier.
+        identifier: u64,
+    },
+    /// A later GOAWAY identifier increased.
+    IncreasedGoawayIdentifier {
+        /// Previously accepted GOAWAY identifier.
+        previous: u64,
+        /// Later, invalid larger GOAWAY identifier.
+        current: u64,
+    },
+    /// A later MAX_PUSH_ID decreased.
+    ReducedMaximumPushId {
+        /// Previously accepted maximum Push ID.
+        previous: Http3PushId,
+        /// Later, invalid smaller maximum Push ID.
+        current: Http3PushId,
+    },
+}
+
+impl Http3ControlStreamError {
+    /// Returns the HTTP/3 application error code required by this failure.
+    pub const fn error_code(self) -> Http3ErrorCode {
+        match self {
+            Self::MissingSettings { .. } => Http3ErrorCode::MISSING_SETTINGS,
+            Self::UnexpectedFrame { .. } => Http3ErrorCode::FRAME_UNEXPECTED,
+            Self::FramePayload { .. } => Http3ErrorCode::FRAME_ERROR,
+            Self::Settings(_) => Http3ErrorCode::SETTINGS_ERROR,
+            Self::InvalidGoawayStreamId { .. }
+            | Self::IncreasedGoawayIdentifier { .. }
+            | Self::ReducedMaximumPushId { .. } => Http3ErrorCode::ID_ERROR,
+        }
+    }
+}
+
+impl fmt::Display for Http3ControlStreamError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingSettings { actual } => write!(
+                f,
+                "HTTP/3 control stream starts with frame type {} instead of SETTINGS",
+                actual.value()
+            ),
+            Self::UnexpectedFrame { frame_type } => write!(
+                f,
+                "HTTP/3 frame type {} is unexpected on the control stream",
+                frame_type.value()
+            ),
+            Self::FramePayload { frame_type, error } => write!(
+                f,
+                "HTTP/3 control-stream frame type {} payload: {error}",
+                frame_type.value()
+            ),
+            Self::Settings(error) => write!(f, "HTTP/3 control-stream SETTINGS: {error}"),
+            Self::InvalidGoawayStreamId { identifier } => write!(
+                f,
+                "HTTP/3 GOAWAY identifier {identifier} is not a client-initiated bidirectional stream ID"
+            ),
+            Self::IncreasedGoawayIdentifier { previous, current } => write!(
+                f,
+                "HTTP/3 GOAWAY identifier increased from {previous} to {current}"
+            ),
+            Self::ReducedMaximumPushId { previous, current } => write!(
+                f,
+                "HTTP/3 MAX_PUSH_ID decreased from {} to {}",
+                previous.value(),
+                current.value()
+            ),
+        }
+    }
+}
+
+impl core::error::Error for Http3ControlStreamError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::FramePayload { error, .. } => Some(error),
+            Self::Settings(error) => Some(error),
+            Self::MissingSettings { .. }
+            | Self::UnexpectedFrame { .. }
+            | Self::InvalidGoawayStreamId { .. }
+            | Self::IncreasedGoawayIdentifier { .. }
+            | Self::ReducedMaximumPushId { .. } => None,
+        }
+    }
 }
 
 /// Bounded state for receiving frames on one HTTP/3 control stream.

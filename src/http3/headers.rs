@@ -1,22 +1,11 @@
 //! Allocation-free semantic validation of QPACK-decoded HTTP/3 field sections.
 
+use core::fmt;
+
 use crate::qpack::QpackDecodedFieldSection;
 
-use super::{Http3HeaderSectionError, Http3HeaderSectionKind};
-
-/// The intended HTTP/3 role of a decoded HEADERS field section.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Http3HeaderSectionContext {
-    /// A request field section, with the negotiated Extended CONNECT capability.
-    Request {
-        /// Whether the peer enabled Extended CONNECT.
-        extended_connect_enabled: bool,
-    },
-    /// A response field section.
-    Response,
-    /// A trailer field section.
-    Trailers,
-}
+use super::codepoints::Http3ErrorCode;
+use super::enums::message::{Http3HeadersContext, Http3HeadersKind};
 
 /// A semantically valid decoded HTTP/3 HEADERS field section.
 ///
@@ -26,7 +15,7 @@ pub enum Http3HeaderSectionContext {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Http3DecodedHeaderSection<'a> {
     section: QpackDecodedFieldSection<'a>,
-    kind: Http3HeaderSectionKind,
+    kind: Http3HeadersKind,
     field_section_size: u64,
 }
 
@@ -37,7 +26,7 @@ impl<'a> Http3DecodedHeaderSection<'a> {
     }
 
     /// Returns the validated HTTP/3 field-section role.
-    pub const fn kind(self) -> Http3HeaderSectionKind {
+    pub const fn kind(self) -> Http3HeadersKind {
         self.kind
     }
 
@@ -49,7 +38,7 @@ impl<'a> Http3DecodedHeaderSection<'a> {
 
 /// A semantically valid decoded HTTP/3 PUSH_PROMISE request field section.
 ///
-/// This distinct type deliberately has no [`Http3HeaderSectionKind`] accessor, preventing it from
+/// This distinct type deliberately has no [`Http3HeadersKind`] accessor, preventing it from
 /// being supplied to HEADERS stream sequencing accidentally.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Http3DecodedPushPromise<'a> {
@@ -72,18 +61,18 @@ impl<'a> Http3DecodedPushPromise<'a> {
 /// Validates one decoded HTTP/3 HEADERS field section without decoding or mutating it.
 pub fn analyze_decoded_header_section<'a>(
     section: QpackDecodedFieldSection<'a>,
-    context: Http3HeaderSectionContext,
+    context: Http3HeadersContext,
 ) -> Result<Http3DecodedHeaderSection<'a>, Http3HeaderSectionError> {
     let (observed, field_section_size) = scan(section, context)?;
     let kind = match context {
-        Http3HeaderSectionContext::Request {
+        Http3HeadersContext::Request {
             extended_connect_enabled,
         } => {
             validate_request(observed, extended_connect_enabled)?;
-            Http3HeaderSectionKind::Request
+            Http3HeadersKind::Request
         }
-        Http3HeaderSectionContext::Response => validate_response(observed)?,
-        Http3HeaderSectionContext::Trailers => Http3HeaderSectionKind::Trailers,
+        Http3HeadersContext::Response => validate_response(observed)?,
+        Http3HeadersContext::Trailers => Http3HeadersKind::Trailers,
     };
     Ok(Http3DecodedHeaderSection {
         section,
@@ -100,7 +89,7 @@ pub fn analyze_decoded_push_promise<'a>(
     section: QpackDecodedFieldSection<'a>,
     extended_connect_enabled: bool,
 ) -> Result<Http3DecodedPushPromise<'a>, Http3HeaderSectionError> {
-    let context = Http3HeaderSectionContext::Request {
+    let context = Http3HeadersContext::Request {
         extended_connect_enabled,
     };
     let (observed, field_section_size) = scan(section, context)?;
@@ -130,7 +119,7 @@ struct Observed<'a> {
 
 fn scan<'a>(
     section: QpackDecodedFieldSection<'a>,
-    context: Http3HeaderSectionContext,
+    context: Http3HeadersContext,
 ) -> Result<(Observed<'a>, u64), Http3HeaderSectionError> {
     let mut observed = Observed {
         method: None,
@@ -153,7 +142,7 @@ fn scan<'a>(
             if regular_seen {
                 return Err(Http3HeaderSectionError::PseudoFieldAfterRegular { field_index });
             }
-            if context == Http3HeaderSectionContext::Trailers {
+            if context == Http3HeadersContext::Trailers {
                 return Err(Http3HeaderSectionError::PseudoFieldInTrailers { field_index });
             }
             observe_pseudo(&mut observed, name, value, field_index, context)?;
@@ -214,25 +203,23 @@ fn observe_pseudo<'a>(
     name: &[u8],
     value: &'a [u8],
     field_index: usize,
-    context: Http3HeaderSectionContext,
+    context: Http3HeadersContext,
 ) -> Result<(), Http3HeaderSectionError> {
     let slot = match name {
-        b":method" if matches!(context, Http3HeaderSectionContext::Request { .. }) => {
+        b":method" if matches!(context, Http3HeadersContext::Request { .. }) => {
             &mut observed.method
         }
-        b":scheme" if matches!(context, Http3HeaderSectionContext::Request { .. }) => {
+        b":scheme" if matches!(context, Http3HeadersContext::Request { .. }) => {
             &mut observed.scheme
         }
-        b":authority" if matches!(context, Http3HeaderSectionContext::Request { .. }) => {
+        b":authority" if matches!(context, Http3HeadersContext::Request { .. }) => {
             &mut observed.authority
         }
-        b":path" if matches!(context, Http3HeaderSectionContext::Request { .. }) => {
-            &mut observed.path
-        }
-        b":protocol" if matches!(context, Http3HeaderSectionContext::Request { .. }) => {
+        b":path" if matches!(context, Http3HeadersContext::Request { .. }) => &mut observed.path,
+        b":protocol" if matches!(context, Http3HeadersContext::Request { .. }) => {
             &mut observed.protocol
         }
-        b":status" if context == Http3HeaderSectionContext::Response => &mut observed.status,
+        b":status" if context == Http3HeadersContext::Response => &mut observed.status,
         _ => return Err(Http3HeaderSectionError::InvalidPseudoField { field_index }),
     };
     if slot.is_some() {
@@ -246,7 +233,7 @@ fn validate_regular_field<'a>(
     name: &[u8],
     value: &'a [u8],
     field_index: usize,
-    context: Http3HeaderSectionContext,
+    context: Http3HeadersContext,
     observed: &mut Observed<'a>,
 ) -> Result<(), Http3HeaderSectionError> {
     if matches!(
@@ -256,7 +243,7 @@ fn validate_regular_field<'a>(
         return Err(Http3HeaderSectionError::ConnectionSpecificField { field_index });
     }
     if name == b"te"
-        && (!matches!(context, Http3HeaderSectionContext::Request { .. }) || !valid_te(value))
+        && (!matches!(context, Http3HeadersContext::Request { .. }) || !valid_te(value))
     {
         return Err(Http3HeaderSectionError::InvalidTe { field_index });
     }
@@ -404,9 +391,7 @@ fn validate_connect_host(
     Ok(())
 }
 
-fn validate_response(
-    observed: Observed<'_>,
-) -> Result<Http3HeaderSectionKind, Http3HeaderSectionError> {
+fn validate_response(observed: Observed<'_>) -> Result<Http3HeadersKind, Http3HeaderSectionError> {
     let status_field = observed
         .status
         .ok_or(Http3HeaderSectionError::MissingPseudoField { name: b":status" })?;
@@ -420,8 +405,8 @@ fn validate_response(
         + u16::from(status_field.value[1] - b'0') * 10
         + u16::from(status_field.value[2] - b'0');
     match status {
-        100..=199 if status != 101 => Ok(Http3HeaderSectionKind::InformationalResponse),
-        200..=599 => Ok(Http3HeaderSectionKind::FinalResponse),
+        100..=199 if status != 101 => Ok(Http3HeadersKind::InformationalResponse),
+        200..=599 => Ok(Http3HeadersKind::FinalResponse),
         _ => Err(Http3HeaderSectionError::InvalidStatus {
             field_index: status_field.field_index,
         }),
@@ -523,3 +508,213 @@ const fn is_token(byte: u8) -> bool {
                 | b'~'
         )
 }
+
+/// Failure to semantically validate a decoded HTTP/3 field section.
+///
+/// `field_index` values identify decoded fields in wire order. They are not byte offsets because
+/// QPACK decoding does not retain a field's encoded wire offset.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Http3HeaderSectionError {
+    /// Adding a decoded field's RFC 9114 size contribution overflowed `u64`.
+    FieldSectionSizeOverflow {
+        /// Index of the field whose contribution overflowed.
+        field_index: usize,
+    },
+    /// A regular field name is empty or not an HTTP token.
+    InvalidFieldName {
+        /// Index of the invalid field.
+        field_index: usize,
+    },
+    /// A regular field name contains an uppercase ASCII byte.
+    UppercaseFieldName {
+        /// Index of the invalid field.
+        field_index: usize,
+    },
+    /// A field value contains invalid HTTP field-content or leading/trailing whitespace.
+    InvalidFieldValue {
+        /// Index of the invalid field.
+        field_index: usize,
+    },
+    /// A pseudo-field follows a regular field.
+    PseudoFieldAfterRegular {
+        /// Index of the misplaced pseudo-field.
+        field_index: usize,
+    },
+    /// A trailer section contains a pseudo-field.
+    PseudoFieldInTrailers {
+        /// Index of the forbidden pseudo-field.
+        field_index: usize,
+    },
+    /// A pseudo-field is unknown or forbidden for this section context.
+    InvalidPseudoField {
+        /// Index of the invalid pseudo-field.
+        field_index: usize,
+    },
+    /// A pseudo-field repeats an earlier pseudo-field.
+    DuplicatePseudoField {
+        /// Index of the repeated pseudo-field.
+        field_index: usize,
+    },
+    /// A required pseudo-field is absent.
+    MissingPseudoField {
+        /// Name of the missing pseudo-field.
+        name: &'static [u8],
+    },
+    /// A connection-specific field is forbidden in HTTP/3.
+    ConnectionSpecificField {
+        /// Index of the forbidden field.
+        field_index: usize,
+    },
+    /// A `te` field is forbidden here or does not contain only `trailers` values.
+    InvalidTe {
+        /// Index of the invalid field.
+        field_index: usize,
+    },
+    /// A `host` field repeats an earlier Host field.
+    DuplicateHost {
+        /// Index of the repeated Host field.
+        field_index: usize,
+    },
+    /// A request has neither a nonempty `:authority` nor a nonempty Host field.
+    MissingAuthorityOrHost,
+    /// A `:authority` value is invalid for the request form.
+    InvalidAuthority {
+        /// Index of the invalid `:authority` field.
+        field_index: usize,
+    },
+    /// A Host field is empty.
+    InvalidHost {
+        /// Index of the invalid Host field.
+        field_index: usize,
+    },
+    /// `:authority` and Host are both present but differ.
+    AuthorityHostMismatch {
+        /// Index of the `:authority` field.
+        authority_field_index: usize,
+        /// Index of the Host field.
+        host_field_index: usize,
+    },
+    /// The `:method` pseudo-field is empty or not an HTTP token.
+    InvalidMethod {
+        /// Index of the invalid `:method` field.
+        field_index: usize,
+    },
+    /// The `:scheme` pseudo-field is empty or malformed.
+    InvalidScheme {
+        /// Index of the invalid `:scheme` field.
+        field_index: usize,
+    },
+    /// The `:path` pseudo-field is empty or invalid for an HTTP scheme.
+    InvalidPath {
+        /// Index of the invalid `:path` field.
+        field_index: usize,
+    },
+    /// The `:protocol` pseudo-field is disabled, malformed, or not paired with CONNECT.
+    InvalidProtocol {
+        /// Index of the invalid `:protocol` field.
+        field_index: usize,
+    },
+    /// An ordinary CONNECT request contains `:scheme` or `:path`.
+    InvalidConnectPseudoFields {
+        /// Index of the first forbidden pseudo-field.
+        field_index: usize,
+    },
+    /// The `:status` pseudo-field is malformed, forbidden, or outside the accepted range.
+    InvalidStatus {
+        /// Index of the invalid `:status` field.
+        field_index: usize,
+    },
+}
+
+impl Http3HeaderSectionError {
+    /// Returns the HTTP/3 application error code required by every semantic field-section error.
+    pub const fn error_code(self) -> Http3ErrorCode {
+        Http3ErrorCode::MESSAGE_ERROR
+    }
+}
+
+impl fmt::Display for Http3HeaderSectionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::FieldSectionSizeOverflow { field_index } => write!(
+                f,
+                "HTTP/3 field {field_index} makes the field-section size overflow"
+            ),
+            Self::InvalidFieldName { field_index } => {
+                write!(f, "HTTP/3 field {field_index} has an invalid name")
+            }
+            Self::UppercaseFieldName { field_index } => {
+                write!(f, "HTTP/3 field {field_index} has an uppercase name")
+            }
+            Self::InvalidFieldValue { field_index } => {
+                write!(f, "HTTP/3 field {field_index} has an invalid value")
+            }
+            Self::PseudoFieldAfterRegular { field_index } => write!(
+                f,
+                "HTTP/3 pseudo-field {field_index} follows a regular field"
+            ),
+            Self::PseudoFieldInTrailers { field_index } => {
+                write!(f, "HTTP/3 trailer pseudo-field {field_index} is forbidden")
+            }
+            Self::InvalidPseudoField { field_index } => write!(
+                f,
+                "HTTP/3 pseudo-field {field_index} is invalid for this context"
+            ),
+            Self::DuplicatePseudoField { field_index } => write!(
+                f,
+                "HTTP/3 pseudo-field {field_index} duplicates an earlier pseudo-field"
+            ),
+            Self::MissingPseudoField { name } => write!(
+                f,
+                "HTTP/3 field section is missing required pseudo-field {name:?}"
+            ),
+            Self::ConnectionSpecificField { field_index } => {
+                write!(f, "HTTP/3 field {field_index} is connection-specific")
+            }
+            Self::InvalidTe { field_index } => {
+                write!(f, "HTTP/3 TE field {field_index} is invalid")
+            }
+            Self::DuplicateHost { field_index } => write!(
+                f,
+                "HTTP/3 Host field {field_index} duplicates an earlier Host field"
+            ),
+            Self::MissingAuthorityOrHost => {
+                f.write_str("HTTP/3 request is missing :authority and Host")
+            }
+            Self::InvalidAuthority { field_index } => {
+                write!(f, "HTTP/3 :authority field {field_index} is invalid")
+            }
+            Self::InvalidHost { field_index } => {
+                write!(f, "HTTP/3 Host field {field_index} is invalid")
+            }
+            Self::AuthorityHostMismatch {
+                authority_field_index,
+                host_field_index,
+            } => write!(
+                f,
+                "HTTP/3 :authority field {authority_field_index} and Host field {host_field_index} differ"
+            ),
+            Self::InvalidMethod { field_index } => {
+                write!(f, "HTTP/3 :method field {field_index} is invalid")
+            }
+            Self::InvalidScheme { field_index } => {
+                write!(f, "HTTP/3 :scheme field {field_index} is invalid")
+            }
+            Self::InvalidPath { field_index } => {
+                write!(f, "HTTP/3 :path field {field_index} is invalid")
+            }
+            Self::InvalidProtocol { field_index } => {
+                write!(f, "HTTP/3 :protocol field {field_index} is invalid")
+            }
+            Self::InvalidConnectPseudoFields { field_index } => write!(
+                f,
+                "HTTP/3 ordinary CONNECT pseudo-field {field_index} is forbidden"
+            ),
+            Self::InvalidStatus { field_index } => {
+                write!(f, "HTTP/3 :status field {field_index} is invalid")
+            }
+        }
+    }
+}
+
+impl core::error::Error for Http3HeaderSectionError {}
