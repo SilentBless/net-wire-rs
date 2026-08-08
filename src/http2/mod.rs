@@ -27,20 +27,6 @@ pub use data::Http2Data;
 pub use error::{Http2BuildError, Http2ParseError, Http2StreamIdError};
 pub use frame::{HTTP2_CLIENT_PREFACE, Http2ClientPreface, Http2Frame, Http2FrameMut};
 pub use headers::{Http2Continuation, Http2Headers, Http2PushPromise};
-pub use hpack::{
-    HPACK_STATIC_TABLE_LEN, HpackBlockDecoder, HpackBlockEncoder, HpackDecodeError,
-    HpackDecodeStep, HpackDecodedField, HpackDecodedFieldMode, HpackDecoderContext,
-    HpackDynamicTable, HpackDynamicTableEntry, HpackDynamicTableError,
-    HpackDynamicTableInsertResult, HpackDynamicTableSizeUpdate, HpackDynamicTableSizeUpdateBuilder,
-    HpackEncodeError, HpackEncodeLiteralName, HpackEncoderContext, HpackHeaderFieldRef,
-    HpackHuffmanDecodeError, HpackHuffmanDecoder, HpackHuffmanEncodeError, HpackHuffmanEncoder,
-    HpackIndexedField, HpackIndexedFieldBuilder, HpackInteger, HpackIntegerBuildError,
-    HpackIntegerBuilder, HpackIntegerParseError, HpackLiteralField, HpackLiteralFieldBuilder,
-    HpackLiteralHuffman, HpackLiteralMode, HpackLiteralName, HpackLiteralValue,
-    HpackRepresentation, HpackRepresentationBuildError, HpackRepresentationParseError,
-    HpackStaticTable, HpackStringLiteral, HpackStringLiteralBuildError, HpackStringLiteralBuilder,
-    HpackStringLiteralParseError,
-};
 pub use priority::Http2Priority;
 pub use sequence::{
     Http2HeaderBlockFragment, Http2HeaderBlockSequence, Http2HeaderBlockSequenceError,
