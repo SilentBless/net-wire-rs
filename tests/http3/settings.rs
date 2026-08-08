@@ -1,8 +1,7 @@
 use net_wire::http3::{
-    Http3FrameBuildError, Http3FramePayloadBuildError, Http3FramePayloadField,
-    Http3FramePayloadParseError, Http3PeerSettings, Http3Setting, Http3SettingId,
-    Http3SettingValue, Http3Settings, Http3SettingsBuilder, Http3SettingsIter,
-    Http3SettingsSemanticError,
+    Http3FrameBuildError, Http3FramePayloadField, Http3FramePayloadParseError, Http3PeerSettings,
+    Http3Setting, Http3SettingId, Http3SettingValue, Http3Settings, Http3SettingsBuildError,
+    Http3SettingsBuilder, Http3SettingsIter, Http3SettingsSemanticError,
 };
 use net_wire::quic::{QuicVarIntBuildError, QuicVarIntParseError};
 
@@ -288,7 +287,7 @@ fn settings_builder_rejects_invalid_inputs_atomically_and_emits_before_destinati
     let mut scratch = [0xbb; 8];
     assert_eq!(
         Http3SettingsBuilder::new(&mut destination, &mut scratch, &duplicate).build(),
-        Err(Http3FramePayloadBuildError::DuplicateSetting {
+        Err(Http3SettingsBuildError::DuplicateSetting {
             id: Http3SettingId::new(0x21),
         })
     );
@@ -301,7 +300,7 @@ fn settings_builder_rejects_invalid_inputs_atomically_and_emits_before_destinati
         let mut scratch = [0xbb; 2];
         assert_eq!(
             Http3SettingsBuilder::new(&mut destination, &mut scratch, &settings).build(),
-            Err(Http3FramePayloadBuildError::ProhibitedSetting {
+            Err(Http3SettingsBuildError::ProhibitedSetting {
                 id: Http3SettingId::new(id),
             })
         );
@@ -318,7 +317,7 @@ fn settings_builder_rejects_invalid_inputs_atomically_and_emits_before_destinati
             &[Http3SettingValue::new(Http3SettingId::new(u64::MAX), 0)],
         )
         .build(),
-        Err(Http3FramePayloadBuildError::PayloadVarInt {
+        Err(Http3SettingsBuildError::SettingVarInt {
             field: Http3FramePayloadField::SettingIdentifier,
             error: QuicVarIntBuildError::ValueTooLarge { value: u64::MAX },
         })
@@ -335,7 +334,7 @@ fn settings_builder_rejects_invalid_inputs_atomically_and_emits_before_destinati
             &[Http3SettingValue::new(Http3SettingId::new(1), u64::MAX)],
         )
         .build(),
-        Err(Http3FramePayloadBuildError::PayloadVarInt {
+        Err(Http3SettingsBuildError::SettingVarInt {
             field: Http3FramePayloadField::SettingValue,
             error: QuicVarIntBuildError::ValueTooLarge { value: u64::MAX },
         })
@@ -353,7 +352,7 @@ fn settings_builder_rejects_invalid_inputs_atomically_and_emits_before_destinati
             &settings
         )
         .build(),
-        Err(Http3FramePayloadBuildError::SettingsScratchTooShort {
+        Err(Http3SettingsBuildError::ScratchTooShort {
             required: 3,
             available: 2,
         })
@@ -370,7 +369,7 @@ fn settings_builder_rejects_invalid_inputs_atomically_and_emits_before_destinati
             &settings
         )
         .build(),
-        Err(Http3FramePayloadBuildError::Frame(
+        Err(Http3SettingsBuildError::Frame(
             Http3FrameBuildError::BufferTooShort {
                 required: 5,
                 available: 4,
@@ -379,4 +378,29 @@ fn settings_builder_rejects_invalid_inputs_atomically_and_emits_before_destinati
     );
     assert_eq!(short_destination, [0xaa; 4]);
     assert_eq!(destination_short_scratch, [0x01, 0x40, 0x40]);
+}
+
+#[test]
+fn settings_builder_exposes_its_own_error_contract() {
+    fn assert_result(_: Result<Http3Settings<'_>, Http3SettingsBuildError>) {}
+
+    let settings = [Http3SettingValue::new(Http3SettingId::new(1), 0)];
+    let mut destination = [0; 4];
+    let mut scratch = [0; 2];
+    assert_result(Http3SettingsBuilder::new(&mut destination, &mut scratch, &settings).build());
+
+    let duplicate = Http3SettingsBuildError::DuplicateSetting {
+        id: Http3SettingId::new(0x21),
+    };
+    assert_eq!(
+        duplicate.to_string(),
+        "HTTP/3 SETTINGS contains duplicate identifier 33"
+    );
+    assert!(core::error::Error::source(&duplicate).is_none());
+
+    let frame = Http3SettingsBuildError::Frame(Http3FrameBuildError::BufferTooShort {
+        required: 1,
+        available: 0,
+    });
+    assert!(core::error::Error::source(&frame).is_some());
 }

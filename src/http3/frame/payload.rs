@@ -10,7 +10,7 @@ use super::{
     Http3Frame, Http3FrameBuildError, Http3FrameBuilder, Http3FrameEnvelopePlan,
     Http3FrameParseError,
 };
-use crate::http3::codepoints::{Http3FrameType, Http3SettingId};
+use crate::http3::codepoints::Http3FrameType;
 use crate::http3::ids::Http3PushId;
 
 /// Identifies an HTTP/3 frame payload field whose variable-length integer is malformed.
@@ -118,29 +118,10 @@ pub enum Http3FramePayloadBuildError {
     },
     /// Adding payload components overflowed `usize`.
     PayloadLengthOverflow {
-        /// Index of the settings entry being accumulated, if applicable.
-        index: Option<usize>,
         /// Accumulated payload length before the addition.
         current: usize,
         /// Component length being added.
         addition: usize,
-    },
-    /// The caller-provided SETTINGS workspace is too short.
-    SettingsScratchTooShort {
-        /// Bytes required for the canonical SETTINGS payload.
-        required: usize,
-        /// Bytes available in the caller workspace.
-        available: usize,
-    },
-    /// The outgoing SETTINGS list contains the same identifier more than once.
-    DuplicateSetting {
-        /// Repeated raw setting identifier.
-        id: Http3SettingId,
-    },
-    /// The outgoing SETTINGS list contains an HTTP/2-only reserved identifier.
-    ProhibitedSetting {
-        /// Reserved raw setting identifier.
-        id: Http3SettingId,
     },
 }
 
@@ -151,38 +132,9 @@ impl fmt::Display for Http3FramePayloadBuildError {
             Self::PayloadVarInt { field, error } => {
                 write!(f, "HTTP/3 {field} variable-length integer: {error}")
             }
-            Self::PayloadLengthOverflow {
-                index,
-                current,
-                addition,
-            } => match index {
-                Some(index) => write!(
-                    f,
-                    "HTTP/3 SETTINGS payload length overflows at entry {index}: {current} plus {addition} bytes"
-                ),
-                None => write!(
-                    f,
-                    "HTTP/3 frame payload length overflows: {current} plus {addition} bytes"
-                ),
-            },
-            Self::SettingsScratchTooShort {
-                required,
-                available,
-            } => write!(
+            Self::PayloadLengthOverflow { current, addition } => write!(
                 f,
-                "HTTP/3 SETTINGS workspace is too short: need {required} bytes, have {available}"
-            ),
-            Self::DuplicateSetting { id } => {
-                write!(
-                    f,
-                    "HTTP/3 SETTINGS contains duplicate identifier {}",
-                    id.value()
-                )
-            }
-            Self::ProhibitedSetting { id } => write!(
-                f,
-                "HTTP/3 SETTINGS identifier {} is reserved for HTTP/2",
-                id.value()
+                "HTTP/3 frame payload length overflows: {current} plus {addition} bytes"
             ),
         }
     }
@@ -192,11 +144,7 @@ impl core::error::Error for Http3FramePayloadBuildError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             Self::Frame(error) => Some(error),
-            Self::PayloadVarInt { .. }
-            | Self::PayloadLengthOverflow { .. }
-            | Self::SettingsScratchTooShort { .. }
-            | Self::DuplicateSetting { .. }
-            | Self::ProhibitedSetting { .. } => None,
+            Self::PayloadVarInt { .. } | Self::PayloadLengthOverflow { .. } => None,
         }
     }
 }
@@ -216,14 +164,9 @@ impl EncodedVarInt {
     }
 }
 
-pub(in crate::http3) fn encode_varint(
-    value: u64,
-    field: Http3FramePayloadField,
-) -> Result<EncodedVarInt, Http3FramePayloadBuildError> {
+pub(in crate::http3) fn encode_varint(value: u64) -> Result<EncodedVarInt, QuicVarIntBuildError> {
     let mut bytes = [0; 8];
-    let varint = QuicVarIntBuilder::new(&mut bytes, value)
-        .build()
-        .map_err(|error| Http3FramePayloadBuildError::PayloadVarInt { field, error })?;
+    let varint = QuicVarIntBuilder::new(&mut bytes, value).build()?;
     let len = varint.encoded_len();
     Ok(EncodedVarInt { bytes, len })
 }
@@ -237,18 +180,8 @@ fn envelope(
         .map_err(Http3FramePayloadBuildError::Frame)
 }
 
-pub(in crate::http3) fn add_payload(
-    current: usize,
-    addition: usize,
-    index: Option<usize>,
-) -> Result<usize, Http3FramePayloadBuildError> {
-    current
-        .checked_add(addition)
-        .ok_or(Http3FramePayloadBuildError::PayloadLengthOverflow {
-            index,
-            current,
-            addition,
-        })
+pub(in crate::http3) fn add_payload(current: usize, addition: usize) -> Option<usize> {
+    current.checked_add(addition)
 }
 
 /// A validated borrowed HTTP/3 DATA frame.
@@ -692,7 +625,12 @@ impl<'output> Http3CancelPushBuilder<'output> {
 
     /// Canonically encodes and atomically writes the CANCEL_PUSH frame.
     pub fn build(self) -> Result<Http3CancelPush<'output>, Http3FramePayloadBuildError> {
-        let push_id = encode_varint(self.push_id.value(), Http3FramePayloadField::PushId)?;
+        let push_id = encode_varint(self.push_id.value()).map_err(|error| {
+            Http3FramePayloadBuildError::PayloadVarInt {
+                field: Http3FramePayloadField::PushId,
+                error,
+            }
+        })?;
         let plan = envelope(
             Http3FrameType::CANCEL_PUSH,
             push_id.byte_len(),
@@ -735,9 +673,17 @@ impl<'output, 'section> Http3PushPromiseBuilder<'output, 'section> {
 
     /// Canonically encodes and atomically writes the PUSH_PROMISE frame.
     pub fn build(self) -> Result<Http3PushPromise<'output>, Http3FramePayloadBuildError> {
-        let push_id = encode_varint(self.push_id.value(), Http3FramePayloadField::PushId)?;
-        let payload_length =
-            add_payload(push_id.byte_len(), self.encoded_field_section.len(), None)?;
+        let push_id = encode_varint(self.push_id.value()).map_err(|error| {
+            Http3FramePayloadBuildError::PayloadVarInt {
+                field: Http3FramePayloadField::PushId,
+                error,
+            }
+        })?;
+        let payload_length = add_payload(push_id.byte_len(), self.encoded_field_section.len())
+            .ok_or(Http3FramePayloadBuildError::PayloadLengthOverflow {
+                current: push_id.byte_len(),
+                addition: self.encoded_field_section.len(),
+            })?;
         let plan = envelope(
             Http3FrameType::PUSH_PROMISE,
             payload_length,
@@ -777,7 +723,12 @@ impl<'output> Http3GoawayBuilder<'output> {
 
     /// Canonically encodes and atomically writes the GOAWAY frame.
     pub fn build(self) -> Result<Http3Goaway<'output>, Http3FramePayloadBuildError> {
-        let identifier = encode_varint(self.identifier, Http3FramePayloadField::GoawayIdentifier)?;
+        let identifier = encode_varint(self.identifier).map_err(|error| {
+            Http3FramePayloadBuildError::PayloadVarInt {
+                field: Http3FramePayloadField::GoawayIdentifier,
+                error,
+            }
+        })?;
         let plan = envelope(
             Http3FrameType::GOAWAY,
             identifier.byte_len(),
@@ -814,7 +765,12 @@ impl<'output> Http3MaxPushIdBuilder<'output> {
 
     /// Canonically encodes and atomically writes the MAX_PUSH_ID frame.
     pub fn build(self) -> Result<Http3MaxPushId<'output>, Http3FramePayloadBuildError> {
-        let push_id = encode_varint(self.push_id.value(), Http3FramePayloadField::PushId)?;
+        let push_id = encode_varint(self.push_id.value()).map_err(|error| {
+            Http3FramePayloadBuildError::PayloadVarInt {
+                field: Http3FramePayloadField::PushId,
+                error,
+            }
+        })?;
         let plan = envelope(
             Http3FrameType::MAX_PUSH_ID,
             push_id.byte_len(),

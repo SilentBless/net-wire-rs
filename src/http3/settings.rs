@@ -3,14 +3,104 @@
 use core::fmt;
 use core::iter::FusedIterator;
 
-use crate::quic::QuicVarInt;
+use crate::quic::{QuicVarInt, QuicVarIntBuildError};
 
 use super::codepoints::{Http3FrameType, Http3SettingId};
 use super::frame::{
-    Http3Frame, Http3FrameBuilder, Http3FramePayloadBuildError, Http3FramePayloadField,
-    Http3FramePayloadParseError, add_payload, encode_varint, parse_payload_varint, validate_type,
+    Http3Frame, Http3FrameBuildError, Http3FrameBuilder, Http3FramePayloadField,
+    Http3FramePayloadParseError, encode_varint, parse_payload_varint, validate_type,
 };
 
+/// Failure to build an outbound HTTP/3 SETTINGS frame.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Http3SettingsBuildError {
+    /// Building the raw HTTP/3 frame envelope failed.
+    Frame(Http3FrameBuildError),
+    /// A SETTINGS field cannot be canonically encoded as a QUIC variable-length integer.
+    SettingVarInt {
+        /// Field whose value could not be encoded.
+        field: Http3FramePayloadField,
+        /// Underlying QUIC variable-length integer failure.
+        error: QuicVarIntBuildError,
+    },
+    /// Adding a SETTINGS entry component overflowed `usize`.
+    PayloadLengthOverflow {
+        /// Index of the SETTINGS entry being accumulated.
+        index: usize,
+        /// Accumulated payload length before the addition.
+        current: usize,
+        /// Component length being added.
+        addition: usize,
+    },
+    /// The caller-provided SETTINGS workspace is too short.
+    ScratchTooShort {
+        /// Bytes required for the canonical SETTINGS payload.
+        required: usize,
+        /// Bytes available in the caller workspace.
+        available: usize,
+    },
+    /// The outgoing SETTINGS list contains the same identifier more than once.
+    DuplicateSetting {
+        /// Repeated raw setting identifier.
+        id: Http3SettingId,
+    },
+    /// The outgoing SETTINGS list contains an HTTP/2-only reserved identifier.
+    ProhibitedSetting {
+        /// Reserved raw setting identifier.
+        id: Http3SettingId,
+    },
+}
+
+impl fmt::Display for Http3SettingsBuildError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Frame(error) => write!(f, "HTTP/3 frame: {error}"),
+            Self::SettingVarInt { field, error } => {
+                write!(f, "HTTP/3 {field} variable-length integer: {error}")
+            }
+            Self::PayloadLengthOverflow {
+                index,
+                current,
+                addition,
+            } => write!(
+                f,
+                "HTTP/3 SETTINGS payload length overflows at entry {index}: {current} plus {addition} bytes"
+            ),
+            Self::ScratchTooShort {
+                required,
+                available,
+            } => write!(
+                f,
+                "HTTP/3 SETTINGS workspace is too short: need {required} bytes, have {available}"
+            ),
+            Self::DuplicateSetting { id } => {
+                write!(
+                    f,
+                    "HTTP/3 SETTINGS contains duplicate identifier {}",
+                    id.value()
+                )
+            }
+            Self::ProhibitedSetting { id } => write!(
+                f,
+                "HTTP/3 SETTINGS identifier {} is reserved for HTTP/2",
+                id.value()
+            ),
+        }
+    }
+}
+
+impl core::error::Error for Http3SettingsBuildError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::Frame(error) => Some(error),
+            Self::SettingVarInt { .. }
+            | Self::PayloadLengthOverflow { .. }
+            | Self::ScratchTooShort { .. }
+            | Self::DuplicateSetting { .. }
+            | Self::ProhibitedSetting { .. } => None,
+        }
+    }
+}
 /// A raw-preserving HTTP/3 SETTINGS parameter.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Http3Setting<'a> {
@@ -204,10 +294,10 @@ impl<'output, 'scratch, 'settings> Http3SettingsBuilder<'output, 'scratch, 'sett
     }
 
     /// Canonically encodes semantically valid SETTINGS and atomically writes their frame.
-    pub fn build(self) -> Result<Http3Settings<'output>, Http3FramePayloadBuildError> {
+    pub fn build(self) -> Result<Http3Settings<'output>, Http3SettingsBuildError> {
         let payload_length = validate_outbound_settings(self.settings)?;
         if self.payload_scratch.len() < payload_length {
-            return Err(Http3FramePayloadBuildError::SettingsScratchTooShort {
+            return Err(Http3SettingsBuildError::ScratchTooShort {
                 required: payload_length,
                 available: self.payload_scratch.len(),
             });
@@ -215,11 +305,18 @@ impl<'output, 'scratch, 'settings> Http3SettingsBuilder<'output, 'scratch, 'sett
 
         let mut offset = 0;
         for setting in self.settings {
-            let id = encode_varint(
-                setting.id.value(),
-                Http3FramePayloadField::SettingIdentifier,
-            )?;
-            let value = encode_varint(setting.value, Http3FramePayloadField::SettingValue)?;
+            let id = encode_varint(setting.id.value()).map_err(|error| {
+                Http3SettingsBuildError::SettingVarInt {
+                    field: Http3FramePayloadField::SettingIdentifier,
+                    error,
+                }
+            })?;
+            let value = encode_varint(setting.value).map_err(|error| {
+                Http3SettingsBuildError::SettingVarInt {
+                    field: Http3FramePayloadField::SettingValue,
+                    error,
+                }
+            })?;
             let id_end = offset + id.byte_len();
             self.payload_scratch[offset..id_end].copy_from_slice(id.bytes());
             let value_end = id_end + value.byte_len();
@@ -233,33 +330,54 @@ impl<'output, 'scratch, 'settings> Http3SettingsBuilder<'output, 'scratch, 'sett
             &self.payload_scratch[..payload_length],
         )
         .build()
-        .map_err(Http3FramePayloadBuildError::Frame)?;
+        .map_err(Http3SettingsBuildError::Frame)?;
         Ok(Http3Settings::from_validated(frame))
     }
 }
 
 fn validate_outbound_settings(
     settings: &[Http3SettingValue],
-) -> Result<usize, Http3FramePayloadBuildError> {
+) -> Result<usize, Http3SettingsBuildError> {
     let mut payload_length = 0;
     for (index, setting) in settings.iter().copied().enumerate() {
         if prohibited_setting(setting.id) {
-            return Err(Http3FramePayloadBuildError::ProhibitedSetting { id: setting.id });
+            return Err(Http3SettingsBuildError::ProhibitedSetting { id: setting.id });
         }
         for previous in &settings[..index] {
             if previous.id == setting.id {
-                return Err(Http3FramePayloadBuildError::DuplicateSetting { id: setting.id });
+                return Err(Http3SettingsBuildError::DuplicateSetting { id: setting.id });
             }
         }
-        let id = encode_varint(
-            setting.id.value(),
-            Http3FramePayloadField::SettingIdentifier,
-        )?;
-        let value = encode_varint(setting.value, Http3FramePayloadField::SettingValue)?;
-        payload_length = add_payload(payload_length, id.byte_len(), Some(index))?;
-        payload_length = add_payload(payload_length, value.byte_len(), Some(index))?;
+        let id = encode_varint(setting.id.value()).map_err(|error| {
+            Http3SettingsBuildError::SettingVarInt {
+                field: Http3FramePayloadField::SettingIdentifier,
+                error,
+            }
+        })?;
+        let value = encode_varint(setting.value).map_err(|error| {
+            Http3SettingsBuildError::SettingVarInt {
+                field: Http3FramePayloadField::SettingValue,
+                error,
+            }
+        })?;
+        payload_length = add_setting_payload(index, payload_length, id.byte_len())?;
+        payload_length = add_setting_payload(index, payload_length, value.byte_len())?;
     }
     Ok(payload_length)
+}
+
+fn add_setting_payload(
+    index: usize,
+    current: usize,
+    addition: usize,
+) -> Result<usize, Http3SettingsBuildError> {
+    current
+        .checked_add(addition)
+        .ok_or(Http3SettingsBuildError::PayloadLengthOverflow {
+            index,
+            current,
+            addition,
+        })
 }
 
 /// Failure to strictly validate HTTP/3 SETTINGS semantics.
@@ -369,5 +487,22 @@ impl Http3PeerSettings {
     /// Returns SETTINGS_QPACK_BLOCKED_STREAMS, defaulting to zero.
     pub const fn qpack_blocked_streams(self) -> u64 {
         self.qpack_blocked_streams
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn setting_payload_length_overflow_preserves_entry_index() {
+        assert_eq!(
+            add_setting_payload(7, usize::MAX, 1),
+            Err(Http3SettingsBuildError::PayloadLengthOverflow {
+                index: 7,
+                current: usize::MAX,
+                addition: 1,
+            })
+        );
     }
 }

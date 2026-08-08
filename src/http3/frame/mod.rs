@@ -13,6 +13,4 @@ pub use payload::{
     Http3GoawayBuilder, Http3Headers, Http3HeadersBuilder, Http3MaxPushId, Http3MaxPushIdBuilder,
     Http3PushPromise, Http3PushPromiseBuilder,
 };
-pub(in crate::http3) use payload::{
-    add_payload, encode_varint, parse_payload_varint, validate_type,
-};
+pub(in crate::http3) use payload::{encode_varint, parse_payload_varint, validate_type};

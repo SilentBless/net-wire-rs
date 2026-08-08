@@ -3,8 +3,7 @@ use net_wire::http3::{
     Http3FrameBuildError, Http3FrameParseError, Http3FramePayloadBuildError,
     Http3FramePayloadField, Http3FramePayloadParseError, Http3FrameType, Http3Goaway,
     Http3GoawayBuilder, Http3Headers, Http3HeadersBuilder, Http3MaxPushId, Http3MaxPushIdBuilder,
-    Http3PushId, Http3PushPromise, Http3PushPromiseBuilder, Http3SettingId, Http3SettingValue,
-    Http3SettingsBuilder,
+    Http3PushId, Http3PushPromise, Http3PushPromiseBuilder,
 };
 use net_wire::quic::{QuicVarIntBuildError, QuicVarIntParseError};
 
@@ -181,12 +180,6 @@ fn typed_standard_builders_public_namespace_is_available() {
         let _: net_wire::http3::Http3MaxPushIdBuilder<'_> =
             Http3MaxPushIdBuilder::new(&mut destination, Http3PushId::new(0));
     }
-    let settings = [Http3SettingValue::new(Http3SettingId::new(1), 0)];
-    let mut destination = [0; 8];
-    let mut scratch = [0; 2];
-    let _: net_wire::http3::Http3SettingsBuilder<'_, '_, '_> =
-        Http3SettingsBuilder::new(&mut destination, &mut scratch, &settings);
-    let _: net_wire::http3::Http3SettingValue = Http3SettingValue::new(Http3SettingId::new(1), 64);
     let _: net_wire::http3::Http3FramePayloadBuildError =
         Http3FramePayloadBuildError::Frame(Http3FrameBuildError::BufferTooShort {
             required: 1,

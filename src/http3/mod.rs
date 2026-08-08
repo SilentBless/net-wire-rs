@@ -30,8 +30,8 @@ pub use headers::{
 pub use ids::{Http3PushId, Http3StreamId};
 pub use qpack::Http3QpackFieldSectionError;
 pub use settings::{
-    Http3PeerSettings, Http3Setting, Http3SettingValue, Http3Settings, Http3SettingsBuilder,
-    Http3SettingsIter, Http3SettingsSemanticError,
+    Http3PeerSettings, Http3Setting, Http3SettingValue, Http3Settings, Http3SettingsBuildError,
+    Http3SettingsBuilder, Http3SettingsIter, Http3SettingsSemanticError,
 };
 pub use stream::{
     Http3ControlFrame, Http3ControlStreamError, Http3ControlStreamState,
