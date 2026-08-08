@@ -92,7 +92,7 @@ required-features = ["quic"]
 
 [[test]]
 name = "quic_tls"
-path = "tests/quic_tls.rs"
+path = "tests/quic/integrations/tls.rs"
 required-features = ["quic", "tls"]
 
 [[test]]
