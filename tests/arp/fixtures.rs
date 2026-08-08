@@ -1,0 +1,3 @@
+pub(super) const GENERIC: [u8; 21] = [
+    0x12, 0x34, 0xbe, 0xef, 3, 2, 0xca, 0xfe, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0xee,
+];
