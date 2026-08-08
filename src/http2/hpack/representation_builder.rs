@@ -3,7 +3,8 @@
 use core::fmt;
 
 use super::integer::{canonical_encoded_len, write_canonical_for_valid_prefix};
-use super::{HpackLiteralMode, HpackStringLiteralBuildError};
+use super::representation::HpackLiteralMode;
+use super::string::HpackStringLiteralBuildError;
 
 /// Builds an RFC 7541 section 6.1 indexed header field in caller-owned storage.
 pub struct HpackIndexedFieldBuilder<'a> {

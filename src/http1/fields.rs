@@ -1,6 +1,6 @@
 //! HTTP/1 field views.
 
-use super::Http1ParseError;
+use super::error::Http1ParseError;
 
 /// A caller-supplied HTTP/1 field.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

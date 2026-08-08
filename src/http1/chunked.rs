@@ -1,6 +1,6 @@
 //! Chunked HTTP/1 body views.
 
-use super::Http1ParseError;
+use super::error::Http1ParseError;
 use super::fields::{Http1Fields, LineEndError, find_line_end, is_token};
 
 /// A validated nonzero HTTP/1 chunk.

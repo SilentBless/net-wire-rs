@@ -1,6 +1,6 @@
 //! HTTP/2 scalar wire values.
 
-use super::Http2StreamIdError;
+use super::error::Http2StreamIdError;
 
 /// An HTTP/2 frame type, preserving extension and unknown values.
 #[repr(transparent)]

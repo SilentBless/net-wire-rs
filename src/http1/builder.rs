@@ -1,8 +1,10 @@
 //! HTTP/1 head builders.
 
+use super::error::Http1BuildError;
+use super::fields::Http1FieldRef;
 use super::fields::{is_token, validate_field_ref};
+use super::head::{Http1RequestHead, Http1ResponseHead, Http1Version};
 use super::head::{valid_reason, valid_request_target};
-use super::{Http1BuildError, Http1FieldRef, Http1RequestHead, Http1ResponseHead, Http1Version};
 
 /// Builds an HTTP/1 request head in caller-owned storage.
 pub struct Http1RequestHeadBuilder<'output, 'input, 'fields> {

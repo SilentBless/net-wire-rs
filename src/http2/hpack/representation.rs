@@ -2,9 +2,8 @@
 
 use core::fmt;
 
-use super::{
-    HpackInteger, HpackIntegerParseError, HpackStringLiteral, HpackStringLiteralParseError,
-};
+use super::integer::{HpackInteger, HpackIntegerParseError};
+use super::string::{HpackStringLiteral, HpackStringLiteralParseError};
 
 /// One exact borrowed RFC 7541 section 6 header-field representation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

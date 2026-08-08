@@ -31,9 +31,9 @@ pub enum Http2ParseError {
     /// A typed frame view was requested for a different raw frame type.
     WrongFrameType {
         /// Required frame type.
-        expected: super::Http2FrameType,
+        expected: super::types::Http2FrameType,
         /// Actual frame type.
-        actual: super::Http2FrameType,
+        actual: super::types::Http2FrameType,
     },
     /// A frame that requires a stream has a zero 31-bit stream identifier.
     ZeroStreamId,
@@ -61,7 +61,7 @@ pub enum Http2ParseError {
     /// A SETTINGS parameter has an intrinsically invalid value.
     InvalidSettingValue {
         /// Encoded setting identifier.
-        id: super::Http2SettingId,
+        id: super::types::Http2SettingId,
         /// Encoded setting value.
         value: u32,
     },
@@ -192,7 +192,7 @@ pub enum Http2BuildError {
     /// A SETTINGS parameter has an intrinsically invalid value.
     InvalidSettingValue {
         /// Encoded setting identifier.
-        id: super::Http2SettingId,
+        id: super::types::Http2SettingId,
         /// Encoded setting value.
         value: u32,
     },

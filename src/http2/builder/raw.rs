@@ -1,6 +1,8 @@
 //! Atomic caller-buffer construction of raw HTTP/2 frames.
 
-use super::super::{Http2BuildError, Http2FrameMut, Http2FrameType, Http2StreamId};
+use super::super::error::Http2BuildError;
+use super::super::frame::Http2FrameMut;
+use super::super::types::{Http2FrameType, Http2StreamId};
 
 /// Builds a raw HTTP/2 frame in caller-owned storage.
 pub struct Http2FrameBuilder<'a, 'b> {

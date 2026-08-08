@@ -1,6 +1,6 @@
 //! HTTP/1 message-body framing.
 
-use super::Http1ParseError;
+use super::error::Http1ParseError;
 use super::fields::{Http1Fields, eq_ascii_case, is_token, trim_ows};
 
 /// HTTP/1 body framing selected by RFC 9112.

@@ -3,11 +3,15 @@
 use core::fmt;
 
 use super::context::PendingSizes;
+use super::huffman::{HpackHuffmanEncodeError, HpackHuffmanEncoder};
 use super::integer::{canonical_encoded_len, write_canonical_for_valid_prefix};
-use super::{
-    HPACK_STATIC_TABLE_LEN, HpackDynamicTable, HpackDynamicTableError,
-    HpackDynamicTableSizeUpdateBuilder, HpackHuffmanEncodeError, HpackHuffmanEncoder,
-    HpackIndexedFieldBuilder, HpackLiteralMode, HpackRepresentationBuildError, HpackStaticTable,
+use super::representation::HpackLiteralMode;
+use super::representation_builder::{
+    HpackDynamicTableSizeUpdateBuilder, HpackIndexedFieldBuilder, HpackRepresentationBuildError,
+};
+use super::table::{
+    HPACK_STATIC_TABLE_LEN, HpackDynamicTable, HpackDynamicTableError, HpackHeaderFieldRef,
+    HpackStaticTable,
 };
 
 /// A decoded literal-field name for [`HpackBlockEncoder::encode_literal`].
@@ -410,7 +414,7 @@ impl<'table, 'storage, 'entries> HpackBlockEncoder<'table, 'storage, 'entries> {
         }
     }
 
-    fn resolve(&self, index: u64) -> Result<super::HpackHeaderFieldRef<'_>, HpackEncodeError> {
+    fn resolve(&self, index: u64) -> Result<HpackHeaderFieldRef<'_>, HpackEncodeError> {
         let index = usize::try_from(index)
             .map_err(|_| HpackEncodeError::IndexNotRepresentable { index })?;
         if index == 0 {

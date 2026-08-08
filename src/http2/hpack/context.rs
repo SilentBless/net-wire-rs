@@ -5,9 +5,9 @@
 //! protocol maximum becomes effective. SETTINGS acknowledgement policy belongs to the
 //! HTTP/2 connection owner, not this HPACK layer.
 
-use super::{
-    HpackBlockDecoder, HpackBlockEncoder, HpackDecodeError, HpackDynamicTable, HpackEncodeError,
-};
+use super::decoder::{HpackBlockDecoder, HpackDecodeError};
+use super::encoder::{HpackBlockEncoder, HpackEncodeError};
+use super::table::HpackDynamicTable;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct PendingSizes {

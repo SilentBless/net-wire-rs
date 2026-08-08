@@ -1,6 +1,7 @@
 //! Exact HTTP/2 client-preface and frame views.
 
-use super::{Http2FrameType, Http2ParseError, Http2StreamId};
+use super::error::Http2ParseError;
+use super::types::{Http2FrameType, Http2StreamId};
 
 /// The exact HTTP/2 client connection preface.
 pub const HTTP2_CLIENT_PREFACE: &[u8; 24] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";

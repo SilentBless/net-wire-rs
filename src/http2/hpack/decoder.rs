@@ -3,10 +3,12 @@
 use core::fmt;
 
 use super::context::PendingSizes;
-use super::{
-    HpackDynamicTable, HpackDynamicTableError, HpackHuffmanDecodeError, HpackHuffmanDecoder,
-    HpackLiteralMode, HpackRepresentation, HpackRepresentationParseError, HpackStaticTable,
-    HpackStringLiteral,
+use super::huffman::{HpackHuffmanDecodeError, HpackHuffmanDecoder};
+use super::representation::{HpackLiteralMode, HpackRepresentation, HpackRepresentationParseError};
+use super::string::HpackStringLiteral;
+use super::table::{
+    HPACK_STATIC_TABLE_LEN, HpackDynamicTable, HpackDynamicTableError, HpackHeaderFieldRef,
+    HpackStaticTable,
 };
 
 /// The indexing semantics of a decoded HPACK header field.
@@ -349,18 +351,18 @@ impl<'block, 'table, 'storage, 'entries> HpackBlockDecoder<'block, 'table, 'stor
         }
     }
 
-    fn resolve(&self, index: u64) -> Result<super::HpackHeaderFieldRef<'_>, HpackDecodeError> {
+    fn resolve(&self, index: u64) -> Result<HpackHeaderFieldRef<'_>, HpackDecodeError> {
         let index = usize::try_from(index)
             .map_err(|_| HpackDecodeError::IndexNotRepresentable { index })?;
         if index == 0 {
             return Err(HpackDecodeError::UnavailableIndex { index: 0 });
         }
-        if index <= super::HPACK_STATIC_TABLE_LEN {
+        if index <= HPACK_STATIC_TABLE_LEN {
             return HpackStaticTable::get(index).ok_or(HpackDecodeError::UnavailableIndex {
                 index: index as u64,
             });
         }
-        let dynamic = index - super::HPACK_STATIC_TABLE_LEN;
+        let dynamic = index - HPACK_STATIC_TABLE_LEN;
         self.table
             .get(dynamic)
             .ok_or(HpackDecodeError::UnavailableIndex {

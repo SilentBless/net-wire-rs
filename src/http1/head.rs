@@ -1,8 +1,9 @@
 //! HTTP/1 message head views.
 
+use super::error::Http1ParseError;
 use super::fields::{Http1Fields, LineEndError, find_line_end, is_token};
+use super::framing::Http1BodyFraming;
 use super::framing::framing;
-use super::{Http1BodyFraming, Http1ParseError};
 
 /// A supported HTTP/1 protocol version.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
