@@ -28,67 +28,67 @@ http3 = ["quic", "qpack"]
 
 [[test]]
 name = "ethernet"
-path = "tests/ethernet.rs"
+path = "tests/ethernet/main.rs"
 required-features = ["ethernet"]
 
 [[test]]
 name = "arp"
-path = "tests/arp.rs"
+path = "tests/arp/main.rs"
 required-features = ["arp"]
 
 [[test]]
 name = "ipv4"
-path = "tests/ipv4.rs"
+path = "tests/ipv4/main.rs"
 required-features = ["ipv4"]
 
 [[test]]
 name = "ipv6"
-path = "tests/ipv6.rs"
+path = "tests/ipv6/main.rs"
 required-features = ["ipv6"]
 
 [[test]]
 name = "icmpv4"
-path = "tests/icmpv4.rs"
+path = "tests/icmpv4/main.rs"
 required-features = ["icmpv4"]
 
 [[test]]
 name = "icmpv6"
-path = "tests/icmpv6.rs"
+path = "tests/icmpv6/main.rs"
 required-features = ["icmpv6"]
 
 [[test]]
 name = "udp"
-path = "tests/udp.rs"
+path = "tests/udp/main.rs"
 required-features = ["udp"]
 
 [[test]]
 name = "kcp"
-path = "tests/kcp.rs"
+path = "tests/kcp/main.rs"
 required-features = ["kcp"]
 
 [[test]]
 name = "tcp"
-path = "tests/tcp.rs"
+path = "tests/tcp/main.rs"
 required-features = ["tcp"]
 
 [[test]]
 name = "tls"
-path = "tests/tls.rs"
+path = "tests/tls/main.rs"
 required-features = ["tls"]
 
 [[test]]
 name = "http1"
-path = "tests/http1.rs"
+path = "tests/http1/main.rs"
 required-features = ["http1"]
 
 [[test]]
 name = "http2"
-path = "tests/http2.rs"
+path = "tests/http2/main.rs"
 required-features = ["http2"]
 
 [[test]]
 name = "quic"
-path = "tests/quic.rs"
+path = "tests/quic/main.rs"
 required-features = ["quic"]
 
 [[test]]
@@ -98,12 +98,12 @@ required-features = ["quic", "tls"]
 
 [[test]]
 name = "qpack"
-path = "tests/qpack.rs"
+path = "tests/qpack/main.rs"
 required-features = ["qpack"]
 
 [[test]]
 name = "http3"
-path = "tests/http3.rs"
+path = "tests/http3/main.rs"
 required-features = ["http3"]
 
 [lints.rust]

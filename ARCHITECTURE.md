@@ -42,8 +42,8 @@ mandatory taxonomy for every protocol.
 - `src/lib.rs` declares feature-gated protocol modules and only truly protocol-independent public items. It contains no protocol implementation.
 - `src/<protocol>/` owns one protocol's raw views, encoders, builders, semantic validation, bounded state, and integrations.
 - Private cross-protocol implementation shared by multiple real consumers lives in a narrowly named root module. It must not become a public alternate facade.
-- `tests/<protocol>.rs` is a thin integration-test harness; `tests/<protocol>/` contains its
-  problem-focused modules.
+- `tests/<protocol>/main.rs` is a thin integration-test harness; its directory contains
+  problem-focused modules resolved through the ordinary Rust module hierarchy.
 
 Simple protocols should resemble the UDP shape: a thin facade, a file owning both immutable and mutable views of the same datagram, and a separate construction owner.
 
@@ -220,11 +220,12 @@ A protocol-wide `error.rs` must not become a catalog of unrelated parser, builde
 
 ## Tests
 
-Each protocol normally uses one primary Cargo integration-test target rooted at the existing thin
-`tests/<protocol>.rs` harness. Its child modules live under `tests/<protocol>/`; the harness only
-declares problem-focused modules and target-wide support. A separate cross-feature target is
-justified when it has a genuinely different `required-features` contract; it follows the same
-directory and grouping rules.
+Each protocol normally uses one primary explicit Cargo integration-test target rooted at the thin
+`tests/<protocol>/main.rs` harness. Its child modules live under the same directory and use the
+ordinary Rust module hierarchy rather than `#[path]` indirection; the harness only declares
+problem-focused modules and target-wide support. A separate cross-feature target is justified when
+it has a genuinely different `required-features` contract and may root directly at its semantic
+integration owner.
 
 Test modules are grouped by what they prove, not by implementation chronology. Useful groups include:
 

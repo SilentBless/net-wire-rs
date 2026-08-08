@@ -1,7 +1,7 @@
 use net_wire::kcp::{KcpSegmentParseError, KcpSegmentsParseError};
 use net_wire::udp::UdpDatagram;
 
-use super::fixtures::SEGMENT;
+use crate::fixtures::SEGMENT;
 
 #[test]
 fn udp_adapter_validates_exact_complete_kcp_payloads() {
