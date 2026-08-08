@@ -1,6 +1,6 @@
 use crate::fixtures::checksum;
 use net_wire::ipv6::Ipv6Address;
-use net_wire::tcp::TcpSegmentMut;
+use net_wire::tcp::{TcpChecksumError, TcpSegmentMut};
 
 fn pseudo(s: Ipv6Address, d: Ipv6Address, segment: &[u8]) -> u16 {
     let mut bytes = [0u8; 61];
@@ -22,7 +22,8 @@ fn known_wrong_stale_and_updated() {
     ];
     assert_eq!(pseudo(s, d, &b), 0x6e4d);
     let mut p = TcpSegmentMut::parse(&mut b).unwrap();
-    p.update_checksum_ipv6(s, d).unwrap();
+    let result: Result<(), TcpChecksumError> = p.update_checksum_ipv6(s, d);
+    result.unwrap();
     assert_eq!(p.checksum(), 0x6e4d);
     assert!(p.checksum_is_valid_ipv6(s, d).unwrap());
     assert!(!p.checksum_is_valid_ipv6(s, wrong).unwrap());

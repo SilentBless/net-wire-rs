@@ -1,6 +1,6 @@
 use crate::fixtures::checksum;
-use net_wire::ipv4::{Ipv4Address, UdpChecksumStatus};
-use net_wire::udp::UdpDatagramMut;
+use net_wire::ipv4::Ipv4Address;
+use net_wire::udp::{UdpChecksumStatus, UdpDatagramMut};
 
 fn pseudo(source: Ipv4Address, destination: Ipv4Address, datagram: &[u8]) -> u16 {
     let mut bytes = [0u8; 22];

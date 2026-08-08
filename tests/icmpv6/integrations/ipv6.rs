@@ -1,4 +1,4 @@
-use net_wire::icmpv6::{Icmpv6Message, Icmpv6MessageMut};
+use net_wire::icmpv6::{Icmpv6ChecksumError, Icmpv6Message, Icmpv6MessageMut};
 use net_wire::ipv6::Ipv6Address;
 
 fn checksum(bytes: &[u8]) -> u16 {
@@ -63,7 +63,8 @@ fn ipv6_checksum_rejects_wrong_addresses_and_stale_bytes_then_updates() {
     let mut message = Icmpv6MessageMut::parse(&mut bytes).unwrap();
     message.body_mut()[0] = 9;
     assert!(!message.checksum_is_valid_ipv6(source, destination).unwrap());
-    message.update_checksum_ipv6(source, destination).unwrap();
+    let result: Result<(), Icmpv6ChecksumError> = message.update_checksum_ipv6(source, destination);
+    result.unwrap();
     assert_eq!(
         message.checksum(),
         pseudo(source, destination, &[128, 0, 0, 0, 9, 1, 0, 2])

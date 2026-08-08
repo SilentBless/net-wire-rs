@@ -1,6 +1,6 @@
 use crate::fixtures::checksum;
 use net_wire::ipv4::Ipv4Address;
-use net_wire::tcp::TcpSegmentMut;
+use net_wire::tcp::{TcpChecksumError, TcpSegmentMut};
 
 fn pseudo(s: Ipv4Address, d: Ipv4Address, segment: &[u8]) -> u16 {
     let mut bytes = [0u8; 33];
@@ -22,7 +22,8 @@ fn known_wrong_stale_and_updated() {
     ];
     assert_eq!(pseudo(s, d, &b), 0xdd8a);
     let mut p = TcpSegmentMut::parse(&mut b).unwrap();
-    p.update_checksum_ipv4(s, d).unwrap();
+    let result: Result<(), TcpChecksumError> = p.update_checksum_ipv4(s, d);
+    result.unwrap();
     assert_eq!(p.checksum(), 0xdd8a);
     assert!(p.checksum_is_valid_ipv4(s, d).unwrap());
     assert!(!p.checksum_is_valid_ipv4(s, wrong).unwrap());

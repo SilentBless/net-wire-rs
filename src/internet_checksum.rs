@@ -1,12 +1,4 @@
 //! Internal one's-complement checksum primitives.
-//!
-//! Errors shared by transport checksums that use IP pseudoheaders.
-
-#[cfg(any(
-    all(feature = "ipv4", feature = "tcp"),
-    all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
-))]
-use core::fmt;
 
 /// Adds wire-order octets to a running one's-complement accumulator.
 #[inline]
@@ -84,35 +76,4 @@ pub(crate) fn add_ipv6_pseudoheader(
     let sum = add_bytes(sum, &destination);
     let sum = add_bytes(sum, &length.to_be_bytes());
     add_bytes(sum, &[0, 0, 0, next_header])
-}
-
-/// Failure to represent a transport message length in an IP pseudoheader.
-#[cfg(any(
-    all(feature = "ipv4", feature = "tcp"),
-    all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
-))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PseudoHeaderChecksumError {
-    /// The message length cannot be represented by the pseudoheader's length field.
-    LengthTooLarge {
-        /// Largest representable message length on this platform.
-        maximum: usize,
-        /// Actual message length.
-        actual: usize,
-    },
-}
-
-#[cfg(any(
-    all(feature = "ipv4", feature = "tcp"),
-    all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
-))]
-impl fmt::Display for PseudoHeaderChecksumError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::LengthTooLarge { maximum, actual } => write!(
-                formatter,
-                "transport message length {actual} exceeds pseudoheader maximum {maximum}"
-            ),
-        }
-    }
 }

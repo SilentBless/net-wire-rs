@@ -68,8 +68,3 @@ pub mod tls;
 pub mod udp;
 
 pub use error::ParseError;
-#[cfg(any(
-    all(feature = "ipv4", feature = "tcp"),
-    all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
-))]
-pub use internet_checksum::PseudoHeaderChecksumError;
