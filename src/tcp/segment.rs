@@ -1,9 +1,9 @@
 //! Checked borrowed TCP segment views.
 
-use super::TcpFlags;
-use crate::ParseError;
+use super::flags::TcpFlags;
+use crate::error::ParseError;
 
-const HEADER_LENGTH: usize = 20;
+pub(super) const HEADER_LENGTH: usize = 20;
 
 /// A structurally validated TCP segment.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

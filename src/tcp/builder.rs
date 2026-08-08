@@ -1,6 +1,7 @@
 //! TCP caller-buffer builder.
 
-use super::{TcpFlags, TcpSegmentMut};
+use super::flags::TcpFlags;
+use super::segment::{HEADER_LENGTH, TcpSegmentMut};
 use core::fmt;
 
 /// Failure to construct a TCP segment in caller-provided storage.
@@ -139,7 +140,7 @@ impl<'a, 'b> TcpSegmentBuilder<'a, 'b> {
         if self.options.len() > 40 || !self.options.len().is_multiple_of(4) {
             return Err(TcpSegmentBuildError::InvalidOptionsLength);
         }
-        let header_length = 20usize
+        let header_length = HEADER_LENGTH
             .checked_add(self.options.len())
             .ok_or(TcpSegmentBuildError::SegmentLengthTooLarge)?;
         let segment_length = header_length
@@ -162,7 +163,7 @@ impl<'a, 'b> TcpSegmentBuilder<'a, 'b> {
         bytes[14..16].copy_from_slice(&self.window_size.to_be_bytes());
         bytes[16..18].copy_from_slice(&self.checksum.to_be_bytes());
         bytes[18..20].copy_from_slice(&self.urgent_pointer.to_be_bytes());
-        bytes[20..header_length].copy_from_slice(self.options);
+        bytes[HEADER_LENGTH..header_length].copy_from_slice(self.options);
         Ok(TcpSegmentMut::from_validated(bytes))
     }
 }
