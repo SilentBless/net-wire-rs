@@ -1,7 +1,7 @@
 //! Internal IPv6 extension-header traversal.
 
-use super::Ipv6NextHeader;
-use crate::ParseError;
+use super::next_header::Ipv6NextHeader;
+use crate::error::ParseError;
 
 pub(super) struct ExtensionTraversal {
     pub(super) next_header: u8,

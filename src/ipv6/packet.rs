@@ -1,7 +1,7 @@
-use super::{Ipv6Address, Ipv6NextHeader, Ipv6PacketBuildError};
-use crate::ParseError;
-#[cfg(feature = "ethernet")]
-use crate::{EtherType, EthernetFrame, EthernetFrameMut};
+use super::address::Ipv6Address;
+use super::builder::Ipv6PacketBuildError;
+use super::next_header::Ipv6NextHeader;
+use crate::error::ParseError;
 
 pub(super) const HEADER_LENGTH: usize = 40;
 
@@ -284,28 +284,4 @@ fn validate(bytes: &[u8]) -> Result<usize, ParseError> {
         });
     }
     Ok(packet_length)
-}
-
-#[cfg(feature = "ethernet")]
-impl<'a> EthernetFrame<'a> {
-    /// Parses IPv6 only when this frame's EtherType is IPv6.
-    #[inline]
-    pub fn ipv6(&self) -> Result<Option<Ipv6Packet<'a>>, ParseError> {
-        if self.ether_type() != EtherType::IPV6 {
-            return Ok(None);
-        }
-        Ipv6Packet::parse(self.payload()).map(Some)
-    }
-}
-
-#[cfg(feature = "ethernet")]
-impl<'a> EthernetFrameMut<'a> {
-    /// Parses mutable IPv6 only when this frame's EtherType is IPv6.
-    #[inline]
-    pub fn ipv6_mut(&mut self) -> Result<Option<Ipv6PacketMut<'_>>, ParseError> {
-        if self.ether_type() != EtherType::IPV6 {
-            return Ok(None);
-        }
-        Ipv6PacketMut::parse(self.payload_mut()).map(Some)
-    }
 }

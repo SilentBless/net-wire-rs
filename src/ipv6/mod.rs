@@ -4,6 +4,8 @@ mod address;
 mod builder;
 #[cfg(any(feature = "icmpv6", feature = "udp", feature = "tcp"))]
 mod dispatch;
+#[cfg(feature = "ethernet")]
+mod ethernet;
 #[cfg(any(feature = "icmpv6", feature = "udp", feature = "tcp"))]
 mod extensions;
 mod next_header;

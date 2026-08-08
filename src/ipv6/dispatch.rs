@@ -1,13 +1,15 @@
 //! IPv6 concrete upper-layer dispatch after extension-header traversal.
 
-use super::{Ipv6NextHeader, Ipv6Packet, Ipv6PacketMut, extensions};
-use crate::ParseError;
+use super::extensions;
+use super::next_header::Ipv6NextHeader;
+use super::packet::{Ipv6Packet, Ipv6PacketMut};
+use crate::error::ParseError;
 #[cfg(feature = "icmpv6")]
-use crate::{Icmpv6Message, Icmpv6MessageMut};
+use crate::icmpv6::{Icmpv6Message, Icmpv6MessageMut};
 #[cfg(feature = "tcp")]
-use crate::{TcpSegment, TcpSegmentMut};
+use crate::tcp::{TcpSegment, TcpSegmentMut};
 #[cfg(feature = "udp")]
-use crate::{UdpDatagram, UdpDatagramMut};
+use crate::udp::{UdpDatagram, UdpDatagramMut};
 
 impl<'a> Ipv6Packet<'a> {
     /// Parses ICMPv6 after traversing supported IPv6 extension headers.

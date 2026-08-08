@@ -1,7 +1,8 @@
 use core::fmt;
 
+use super::address::Ipv6Address;
+use super::next_header::Ipv6NextHeader;
 use super::packet::{HEADER_LENGTH, Ipv6PacketMut};
-use super::{Ipv6Address, Ipv6NextHeader};
 
 /// Failure while validating an IPv6 builder request.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

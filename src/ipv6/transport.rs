@@ -1,16 +1,16 @@
 //! IPv6 pseudoheader checksum integration for transport protocols.
 
-use super::Ipv6Address;
-#[cfg(any(feature = "icmpv6", feature = "tcp"))]
-use crate::PseudoHeaderChecksumError;
+use super::address::Ipv6Address;
 #[cfg(any(feature = "icmpv6", feature = "tcp", feature = "udp"))]
 use crate::checksum::{self, add_ipv6_pseudoheader};
 #[cfg(feature = "icmpv6")]
-use crate::{Icmpv6Message, Icmpv6MessageMut};
+use crate::icmpv6::{Icmpv6Message, Icmpv6MessageMut};
+#[cfg(any(feature = "icmpv6", feature = "tcp"))]
+use crate::pseudoheader::PseudoHeaderChecksumError;
 #[cfg(feature = "tcp")]
-use crate::{TcpSegment, TcpSegmentMut};
+use crate::tcp::{TcpSegment, TcpSegmentMut};
 #[cfg(feature = "udp")]
-use crate::{UdpDatagram, UdpDatagramMut};
+use crate::udp::{UdpDatagram, UdpDatagramMut};
 
 #[cfg(feature = "icmpv6")]
 const ICMPV6_NEXT_HEADER: u8 = 58;
