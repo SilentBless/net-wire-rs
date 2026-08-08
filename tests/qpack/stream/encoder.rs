@@ -1,3 +1,4 @@
+// This suite keeps encoder-stream raw wire forms, builders, sequence validation, and iteration together.
 use net_wire::qpack;
 use net_wire::qpack::{
     QPACK_INTEGER_MAX, QpackDuplicateBuilder, QpackEncoderInstruction,

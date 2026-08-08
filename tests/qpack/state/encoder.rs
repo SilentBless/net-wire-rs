@@ -1,3 +1,4 @@
+// This suite keeps encoder feedback, outstanding sections, reference storage, and atomicity together.
 use net_wire::qpack::{
     QPACK_INTEGER_MAX, QpackDecoderInstruction, QpackDecoderInstructionApplyError,
     QpackDecoderInstructionParseError, QpackDecoderInstructionsApplyError,

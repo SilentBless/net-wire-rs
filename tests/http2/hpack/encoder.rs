@@ -1,3 +1,4 @@
+// This suite keeps the HPACK encoder context, block emission, Huffman, and atomic state-output contracts together.
 use net_wire::http2::hpack::{
     HPACK_STATIC_TABLE_LEN, HpackDecodeStep, HpackDecoderContext, HpackDynamicTable,
     HpackDynamicTableEntry, HpackEncodeError, HpackEncodeLiteralName, HpackEncoderContext,

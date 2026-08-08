@@ -1,3 +1,4 @@
+// This suite keeps instruction application, table mutation, sequence handling, and atomicity together.
 use net_wire::qpack;
 use net_wire::qpack::{
     QpackDynamicTable, QpackDynamicTableEntry, QpackDynamicTableError, QpackEncoderInstruction,
