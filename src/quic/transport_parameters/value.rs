@@ -2,8 +2,9 @@
 
 use core::fmt;
 
-use super::super::QuicConnectionId;
-use super::{QuicTransportParameter, QuicTransportParameterId, QuicVarInt, QuicVarIntParseError};
+use super::super::packet::header::QuicConnectionId;
+use super::super::varint::{QuicVarInt, QuicVarIntParseError};
+use super::{QuicTransportParameter, QuicTransportParameterId};
 
 /// Identifies an RFC 9000 transport-parameter payload layout.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

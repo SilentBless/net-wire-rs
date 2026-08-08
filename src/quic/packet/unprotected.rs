@@ -4,11 +4,67 @@
 //! structure. They do not apply header protection, authenticate packets, decrypt payloads, or
 //! reconstruct full packet numbers.
 
-use super::super::QuicUnprotectedHeaderError;
-use super::{QuicProtectedLongPacket, QuicShortHeader};
+use core::fmt;
+
+use super::header::QuicShortHeader;
+use super::long::QuicProtectedLongPacket;
 
 const LONG_PRESERVED_MASK: u8 = 0xf0;
 const SHORT_PRESERVED_MASK: u8 = 0xe0;
+
+/// Failure to associate caller-unprotected bytes with a protected QUIC packet view.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QuicUnprotectedHeaderError {
+    /// Header-protection-preserved first-byte bits differ from the protected packet.
+    PreservedBitsMismatch {
+        /// The first byte from the accepted protected packet.
+        protected_first_byte: u8,
+        /// The caller-supplied unprotected first byte.
+        unprotected_first_byte: u8,
+        /// Mask identifying bits that header protection must preserve.
+        preserved_mask: u8,
+    },
+    /// The supplied truncated packet-number byte count disagrees with the unprotected first byte.
+    PacketNumberLengthMismatch {
+        /// Packet-number byte count required by the unprotected first byte.
+        expected: usize,
+        /// Caller-supplied packet-number byte count.
+        supplied: usize,
+    },
+    /// The protected packet remainder cannot physically contain the indicated packet number.
+    ProtectedRemainderTooShort {
+        /// Packet-number byte count required by the unprotected first byte.
+        required: usize,
+        /// Bytes physically available in the protected packet remainder.
+        available: usize,
+    },
+}
+
+impl fmt::Display for QuicUnprotectedHeaderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::PreservedBitsMismatch {
+                protected_first_byte,
+                unprotected_first_byte,
+                preserved_mask,
+            } => write!(
+                f,
+                "QUIC protected first byte {protected_first_byte:#04x} and unprotected first byte {unprotected_first_byte:#04x} differ under preserved-bit mask {preserved_mask:#04x}"
+            ),
+            Self::PacketNumberLengthMismatch { expected, supplied } => write!(
+                f,
+                "QUIC unprotected packet-number width mismatch: need {expected} bytes, have {supplied}"
+            ),
+            Self::ProtectedRemainderTooShort {
+                required,
+                available,
+            } => write!(
+                f,
+                "QUIC protected packet remainder is too short for its unprotected packet number: need {required} bytes, have {available}"
+            ),
+        }
+    }
+}
 
 /// The encoded width of a QUIC truncated packet number.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

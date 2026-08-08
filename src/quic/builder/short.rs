@@ -1,8 +1,7 @@
 //! Protected QUIC v1 and v2 short-packet builder.
 
-use super::super::{
-    QuicConnectionId, QuicConnectionIdField, QuicPacketBuildError, QuicShortHeader,
-};
+use super::super::packet::header::{QuicConnectionId, QuicConnectionIdField, QuicShortHeader};
+use super::QuicPacketBuildError;
 
 /// Builds a complete protected QUIC short-header packet in caller-owned storage.
 ///

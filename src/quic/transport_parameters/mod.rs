@@ -5,7 +5,7 @@ mod value;
 
 use core::{fmt, iter::FusedIterator};
 
-use super::{QuicVarInt, QuicVarIntParseError};
+use super::varint::{QuicVarInt, QuicVarIntParseError};
 
 pub use semantic::{
     QuicTransportParameterHandshakeContext, QuicTransportParameterHandshakeError,

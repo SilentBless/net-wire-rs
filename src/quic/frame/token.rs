@@ -1,6 +1,7 @@
 //! RFC 9000 NEW_TOKEN frame parsing.
 
-use super::super::{QuicFrameField, QuicFrameParseError, QuicVarInt};
+use super::super::varint::QuicVarInt;
+use super::parse::{QuicFrameField, QuicFrameParseError};
 
 /// A checked borrowed RFC 9000 NEW_TOKEN frame view.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -1,8 +1,18 @@
 //! RFC 9000 scalar control frame views.
 
-use super::super::{QuicFrameField, QuicFrameParseError, QuicStreamDirection, QuicVarInt};
+use super::super::varint::QuicVarInt;
+use super::parse::{QuicFrameField, QuicFrameParseError};
 
 const MAXIMUM_STREAMS_LIMIT: u64 = 1 << 60;
+
+/// Identifies whether a QUIC stream is bidirectional or unidirectional.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum QuicStreamDirection {
+    /// A stream carrying data in both directions.
+    Bidirectional,
+    /// A stream carrying data in one direction.
+    Unidirectional,
+}
 
 /// A checked borrowed RFC 9000 MAX_STREAMS frame view.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

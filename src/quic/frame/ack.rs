@@ -2,7 +2,8 @@
 
 use core::iter::FusedIterator;
 
-use super::super::{QuicFrameField, QuicFrameParseError, QuicVarInt};
+use super::super::varint::QuicVarInt;
+use super::parse::{QuicFrameField, QuicFrameParseError};
 
 /// A checked borrowed RFC 9000 ACK or ACK_ECN frame view.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

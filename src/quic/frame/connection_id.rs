@@ -1,6 +1,8 @@
 //! RFC 9000 NEW_CONNECTION_ID and RETIRE_CONNECTION_ID frame parsing.
 
-use super::super::{QuicConnectionId, QuicFrameField, QuicFrameParseError, QuicVarInt};
+use super::super::packet::header::QuicConnectionId;
+use super::super::varint::QuicVarInt;
+use super::parse::{QuicFrameField, QuicFrameParseError};
 
 const STATELESS_RESET_TOKEN_LEN: usize = 16;
 const MAX_CONNECTION_ID_LEN: u8 = 20;

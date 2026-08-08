@@ -1,9 +1,8 @@
 //! Version-aware bounded views of protected QUIC long packets.
 
-use super::super::{
-    QuicConnectionIdField, QuicLongHeader, QuicLongPacketType, QuicPacketParseError, QuicVarInt,
-    QuicVarIntParseError, QuicVersion,
-};
+use super::super::varint::{QuicVarInt, QuicVarIntParseError};
+use super::header::{QuicConnectionIdField, QuicLongHeader, QuicLongPacketType, QuicVersion};
+use super::parse::QuicPacketParseError;
 
 /// A borrowed QUIC v1 or v2 protected Initial, 0-RTT, or Handshake packet.
 ///

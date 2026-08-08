@@ -1,6 +1,7 @@
 //! RFC 9000 STREAM frame parsing.
 
-use super::super::{QuicFrameField, QuicFrameParseError, QuicVarInt};
+use super::super::varint::QuicVarInt;
+use super::parse::{QuicFrameField, QuicFrameParseError};
 
 const MAX_STREAM_RANGE_END: u64 = (1 << 62) - 1;
 

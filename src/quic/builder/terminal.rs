@@ -1,9 +1,10 @@
 //! Terminal QUIC packet builders.
 
-use super::super::{
-    QuicConnectionId, QuicConnectionIdField, QuicLongHeader, QuicLongPacketType,
-    QuicPacketBuildError, QuicRetryPacket, QuicVersion, QuicVersionNegotiationPacket,
+use super::super::packet::header::{
+    QuicConnectionId, QuicConnectionIdField, QuicLongHeader, QuicLongPacketType, QuicVersion,
 };
+use super::super::packet::terminal::{QuicRetryPacket, QuicVersionNegotiationPacket};
+use super::QuicPacketBuildError;
 
 const RETRY_INTEGRITY_TAG_LEN: usize = 16;
 

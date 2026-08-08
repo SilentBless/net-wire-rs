@@ -1,6 +1,7 @@
 //! RFC 9000 CRYPTO frame parsing.
 
-use super::super::{QuicFrameField, QuicFrameParseError, QuicVarInt};
+use super::super::varint::QuicVarInt;
+use super::parse::{QuicFrameField, QuicFrameParseError};
 
 const MAX_CRYPTO_RANGE_END: u64 = (1 << 62) - 1;
 

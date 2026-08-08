@@ -2,11 +2,12 @@
 
 use core::iter::FusedIterator;
 
-use super::{
-    QuicLongHeader, QuicLongPacketType, QuicPacketParseError, QuicProtectedLongPacket,
-    QuicRetryPacket, QuicShortHeader, QuicShortHeaderContext, QuicVersion,
-    QuicVersionNegotiationPacket,
+use super::header::{
+    QuicLongHeader, QuicLongPacketType, QuicShortHeader, QuicShortHeaderContext, QuicVersion,
 };
+use super::long::QuicProtectedLongPacket;
+use super::parse::QuicPacketParseError;
+use super::terminal::{QuicRetryPacket, QuicVersionNegotiationPacket};
 
 /// A borrowed unknown-version QUIC long packet occupying the complete datagram remainder.
 ///

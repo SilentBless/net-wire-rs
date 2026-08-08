@@ -1,10 +1,11 @@
 //! Protected QUIC v1 and v2 length-delimited long-packet builders.
 
-use super::super::{
-    QuicConnectionId, QuicConnectionIdField, QuicLongHeader, QuicLongPacketType,
-    QuicPacketBuildError, QuicPacketBuildField, QuicProtectedLongPacket, QuicVarInt,
-    QuicVarIntBuildError, QuicVarIntLen, QuicVersion,
+use super::super::packet::header::{
+    QuicConnectionId, QuicConnectionIdField, QuicLongHeader, QuicLongPacketType, QuicVersion,
 };
+use super::super::packet::long::QuicProtectedLongPacket;
+use super::super::varint::{QuicVarInt, QuicVarIntBuildError, QuicVarIntLen};
+use super::{QuicPacketBuildError, QuicPacketBuildField};
 
 /// Builds a protected QUIC v1 or v2 Initial packet in caller-owned storage.
 pub struct QuicInitialPacketBuilder<'buffer, 'input> {

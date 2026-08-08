@@ -2,9 +2,8 @@
 
 use core::iter::FusedIterator;
 
-use super::super::{
-    QuicConnectionIdField, QuicLongHeader, QuicLongPacketType, QuicPacketParseError, QuicVersion,
-};
+use super::header::{QuicConnectionIdField, QuicLongHeader, QuicLongPacketType, QuicVersion};
+use super::parse::QuicPacketParseError;
 
 const RETRY_INTEGRITY_TAG_LEN: usize = 16;
 

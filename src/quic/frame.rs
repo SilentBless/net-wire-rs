@@ -5,6 +5,7 @@ mod connection_close;
 mod connection_id;
 mod control;
 mod crypto;
+mod parse;
 mod path;
 mod stream;
 mod token;
@@ -14,17 +15,18 @@ pub use connection_close::QuicConnectionCloseFrame;
 pub use connection_id::{QuicNewConnectionIdFrame, QuicRetireConnectionIdFrame};
 pub use control::{
     QuicDataBlockedFrame, QuicMaxDataFrame, QuicMaxStreamDataFrame, QuicMaxStreamsFrame,
-    QuicResetStreamFrame, QuicStopSendingFrame, QuicStreamDataBlockedFrame,
+    QuicResetStreamFrame, QuicStopSendingFrame, QuicStreamDataBlockedFrame, QuicStreamDirection,
     QuicStreamsBlockedFrame,
 };
 pub use crypto::QuicCryptoFrame;
+pub use parse::{QuicFrameField, QuicFrameParseError};
 pub use path::{QuicPathChallengeFrame, QuicPathResponseFrame};
 pub use stream::QuicStreamFrame;
 pub use token::QuicNewTokenFrame;
 
 use core::iter::FusedIterator;
 
-use super::{QuicFrameParseError, QuicStreamDirection, QuicVarInt};
+use super::varint::QuicVarInt;
 
 /// A checked borrowed PADDING frame view.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

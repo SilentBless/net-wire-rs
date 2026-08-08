@@ -1,8 +1,34 @@
 //! RFC 9000 section 16 variable-length integer parsing and construction.
 
-use super::{QuicVarIntBuildError, QuicVarIntParseError};
+use core::fmt;
 
 const MAX_VALUE: u64 = (1 << 62) - 1;
+
+/// Failure to parse a QUIC variable-length integer.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QuicVarIntParseError {
+    /// The input does not contain the complete encoded integer.
+    Incomplete {
+        /// Bytes required by the encoded width.
+        required: usize,
+        /// Bytes available in the input.
+        available: usize,
+    },
+}
+
+impl fmt::Display for QuicVarIntParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Incomplete {
+                required,
+                available,
+            } => write!(
+                f,
+                "QUIC variable-length integer input is incomplete: need {required} bytes, have {available}"
+            ),
+        }
+    }
+}
 
 /// A QUIC variable-integer encoded width.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -53,6 +79,53 @@ impl QuicVarIntLen {
             1 => Self::Two,
             2 => Self::Four,
             _ => Self::Eight,
+        }
+    }
+}
+
+/// Failure to build a QUIC variable-length integer.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QuicVarIntBuildError {
+    /// The value exceeds QUIC's 62-bit maximum.
+    ValueTooLarge {
+        /// Supplied value.
+        value: u64,
+    },
+    /// The requested encoded width cannot represent the value.
+    WidthTooSmall {
+        /// Requested encoded width.
+        length: QuicVarIntLen,
+        /// Supplied value.
+        value: u64,
+    },
+    /// The caller buffer cannot contain the requested encoding.
+    BufferTooShort {
+        /// Required bytes.
+        required: usize,
+        /// Available bytes.
+        available: usize,
+    },
+}
+
+impl fmt::Display for QuicVarIntBuildError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ValueTooLarge { value } => write!(
+                f,
+                "QUIC variable-length integer value {value} exceeds the 62-bit maximum"
+            ),
+            Self::WidthTooSmall { length, value } => write!(
+                f,
+                "QUIC variable-length integer width {} cannot represent {value}",
+                length.byte_len()
+            ),
+            Self::BufferTooShort {
+                required,
+                available,
+            } => write!(
+                f,
+                "QUIC variable-length integer buffer is too short: need {required} bytes, have {available}"
+            ),
         }
     }
 }
