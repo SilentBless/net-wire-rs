@@ -1,9 +1,13 @@
 //! IPv4 protocol values, packet views, and construction (RFC 791).
 
 mod address;
+#[cfg(feature = "arp")]
+mod arp;
 mod builder;
 #[cfg(any(feature = "icmpv4", feature = "udp", feature = "tcp"))]
 mod dispatch;
+#[cfg(feature = "ethernet")]
+mod ethernet;
 mod packet;
 mod protocol;
 #[cfg(any(feature = "udp", feature = "tcp"))]

@@ -1,5 +1,6 @@
-use super::packet::Ipv4PacketMut;
-use super::{Ipv4Address, Ipv4Protocol};
+use super::address::Ipv4Address;
+use super::packet::{HEADER_LENGTH, Ipv4PacketMut};
+use super::protocol::Ipv4Protocol;
 use crate::checksum;
 use core::fmt;
 /// IPv4 builder validation failure.
@@ -142,7 +143,7 @@ impl<'buffer, 'input> Ipv4PacketBuilder<'buffer, 'input> {
         if self.options.len() > 40 || !self.options.len().is_multiple_of(4) {
             return Err(Ipv4PacketBuildError::InvalidOptionsLength);
         }
-        let header = 20 + self.options.len();
+        let header = HEADER_LENGTH + self.options.len();
         let total = header
             .checked_add(self.payload)
             .ok_or(Ipv4PacketBuildError::TotalLengthTooLarge)?;
@@ -167,7 +168,7 @@ impl<'buffer, 'input> Ipv4PacketBuilder<'buffer, 'input> {
         b[11] = 0;
         b[12..16].copy_from_slice(&source.octets());
         b[16..20].copy_from_slice(&destination.octets());
-        b[20..header].copy_from_slice(self.options);
+        b[HEADER_LENGTH..header].copy_from_slice(self.options);
         let checksum = !checksum::sum(&b[..header]);
         b[10..12].copy_from_slice(&checksum.to_be_bytes());
         Ok(Ipv4PacketMut::from_validated(b, header))

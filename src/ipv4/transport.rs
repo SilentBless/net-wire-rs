@@ -1,6 +1,6 @@
 //! IPv4 pseudoheader checksum integration for transport protocols.
 
-use super::Ipv4Address;
+use super::address::Ipv4Address;
 #[cfg(any(feature = "tcp", feature = "udp"))]
 use crate::checksum::{self, add_ipv4_pseudoheader};
 #[cfg(feature = "udp")]

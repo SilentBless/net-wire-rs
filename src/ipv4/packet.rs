@@ -1,12 +1,10 @@
 //! IPv4 packet views and header-checksum handling (RFC 791).
 
-use super::Ipv4Protocol;
-#[cfg(feature = "ethernet")]
-use crate::{EtherType, EthernetFrame, EthernetFrameMut};
-use crate::{ParseError, checksum};
+use super::address::Ipv4Address;
+use super::protocol::Ipv4Protocol;
+use crate::{checksum, error::ParseError};
 
-use super::Ipv4Address;
-const HEADER: usize = 20;
+pub(super) const HEADER_LENGTH: usize = 20;
 
 /// A structurally validated immutable RFC 791 packet view.
 ///
@@ -84,7 +82,7 @@ impl<'a> Ipv4Packet<'a> {
     /// Returns RFC 791 option bytes included by IHL.
     #[inline]
     pub fn options(&self) -> &'a [u8] {
-        &self.bytes[HEADER..self.header_length]
+        &self.bytes[HEADER_LENGTH..self.header_length]
     }
     /// Returns declared payload bytes; they are not header-checksum covered.
     #[inline]
@@ -180,7 +178,7 @@ impl<'a> Ipv4PacketMut<'a> {
     /// Returns option bytes included by IHL.
     #[inline]
     pub fn options(&self) -> &[u8] {
-        &self.bytes[HEADER..self.header_length]
+        &self.bytes[HEADER_LENGTH..self.header_length]
     }
     /// Returns payload bytes, which are not header-checksum covered.
     #[inline]
@@ -190,7 +188,7 @@ impl<'a> Ipv4PacketMut<'a> {
     /// Returns mutable options; this does not update the header checksum.
     #[inline]
     pub fn options_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes[HEADER..self.header_length]
+        &mut self.bytes[HEADER_LENGTH..self.header_length]
     }
     /// Returns mutable payload bytes, which are not header-checksum covered.
     #[inline]
@@ -278,9 +276,9 @@ fn write_u16(bytes: &mut [u8], offset: usize, value: u16) {
 }
 #[inline]
 fn validate(bytes: &[u8]) -> Result<(usize, usize), ParseError> {
-    if bytes.len() < HEADER {
+    if bytes.len() < HEADER_LENGTH {
         return Err(ParseError::Truncated {
-            minimum: HEADER,
+            minimum: HEADER_LENGTH,
             available: bytes.len(),
         });
     }
@@ -292,9 +290,9 @@ fn validate(bytes: &[u8]) -> Result<(usize, usize), ParseError> {
         });
     }
     let header_length = usize::from(bytes[0] & 15) * 4;
-    if header_length < HEADER {
+    if header_length < HEADER_LENGTH {
         return Err(ParseError::InvalidHeaderLength {
-            minimum: HEADER,
+            minimum: HEADER_LENGTH,
             actual: header_length,
         });
     }
@@ -318,26 +316,4 @@ fn validate(bytes: &[u8]) -> Result<(usize, usize), ParseError> {
         });
     }
     Ok((header_length, total_length))
-}
-#[cfg(feature = "ethernet")]
-impl<'a> EthernetFrame<'a> {
-    /// Parses IPv4 only for the IPv4 EtherType.
-    #[inline]
-    pub fn ipv4(&self) -> Result<Option<Ipv4Packet<'a>>, ParseError> {
-        if self.ether_type() != EtherType::IPV4 {
-            return Ok(None);
-        }
-        Ipv4Packet::parse(self.payload()).map(Some)
-    }
-}
-#[cfg(feature = "ethernet")]
-impl<'a> EthernetFrameMut<'a> {
-    /// Parses mutable IPv4 only for the IPv4 EtherType.
-    #[inline]
-    pub fn ipv4_mut(&mut self) -> Result<Option<Ipv4PacketMut<'_>>, ParseError> {
-        if self.ether_type() != EtherType::IPV4 {
-            return Ok(None);
-        }
-        Ipv4PacketMut::parse(self.payload_mut()).map(Some)
-    }
 }
