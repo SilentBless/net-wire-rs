@@ -14,7 +14,7 @@ pub use extensions::{
     EcPointFormats, HrrKeyShare, KeyShareEntry, KeyShareIter, PskBinderIter, PskIdentity,
     PskIdentityIter, PskKeyExchangeModes, ServerKeyShare, ServerName, ServerNameIter,
     ServerPreSharedKey, ServerSelectedAlpn, ServerSupportedVersion, SignatureAlgorithms,
-    SupportedGroups, SupportedVersions, TlsExtension, TlsExtensions,
+    SupportedGroups, TlsExtension, TlsExtensions,
 };
 pub use handshake::{TlsHandshake, TlsHandshakeBuilder};
 pub use hello::{ClientHello, HELLO_RETRY_REQUEST_RANDOM, ServerHello};

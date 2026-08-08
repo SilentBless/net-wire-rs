@@ -6,8 +6,6 @@ use crate::tls::{error::TlsParseError, types::TlsProtocolVersion};
 pub struct ClientSupportedVersions<'a> {
     bytes: &'a [u8],
 }
-/// Backward-compatible name for client supported protocol versions.
-pub type SupportedVersions<'a> = ClientSupportedVersions<'a>;
 impl<'a> ClientSupportedVersions<'a> {
     pub(super) fn parse(b: &'a [u8]) -> Result<Self, TlsParseError> {
         let bytes = v8(b, 2)?;

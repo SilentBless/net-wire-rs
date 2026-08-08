@@ -20,4 +20,4 @@ pub use scalar_lists::{
     CertificateCompressionAlgorithms, EcPointFormats, SignatureAlgorithms, SupportedGroups,
 };
 pub use server_name::{ClientServerNameList, ServerName, ServerNameIter};
-pub use versions::{ClientSupportedVersions, ServerSupportedVersion, SupportedVersions};
+pub use versions::{ClientSupportedVersions, ServerSupportedVersion};
