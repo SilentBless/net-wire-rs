@@ -1,32 +1,31 @@
-use net_wire::{
+use net_wire::qpack;
+use net_wire::qpack::{
     QPACK_INTEGER_MAX, QPACK_STATIC_TABLE_LEN, QpackBlockedStream, QpackBlockedStreams,
-    QpackBlockedStreamsError, QpackDecodedFieldEntry, QpackDecodedFieldIter, QpackDecodedFieldRef,
-    QpackDecodedFieldSection, QpackDecoderFeedbackError, QpackDecoderInstruction,
-    QpackDecoderInstructionApplyError, QpackDecoderInstructionBuildError,
-    QpackDecoderInstructionParseError, QpackDecoderInstructions,
+    QpackBlockedStreamsError, QpackDecodedFieldEntry, QpackDecodedFieldRef,
+    QpackDecoderFeedbackError, QpackDecoderInstruction, QpackDecoderInstructionApplyError,
+    QpackDecoderInstructionBuildError, QpackDecoderInstructionParseError, QpackDecoderInstructions,
     QpackDecoderInstructionsApplyError, QpackDecoderInstructionsParseError, QpackDecoderState,
-    QpackDuplicate, QpackDuplicateBuilder, QpackDynamicTable, QpackDynamicTableEntry,
-    QpackDynamicTableError, QpackEncoderInstruction, QpackEncoderInstructionApplier,
-    QpackEncoderInstructionApplyError, QpackEncoderInstructionApplyOutcome,
-    QpackEncoderInstructionBuildError, QpackEncoderInstructionParseError, QpackEncoderInstructions,
+    QpackDuplicateBuilder, QpackDynamicTable, QpackDynamicTableEntry, QpackDynamicTableError,
+    QpackEncoderInstruction, QpackEncoderInstructionApplier, QpackEncoderInstructionApplyError,
+    QpackEncoderInstructionApplyOutcome, QpackEncoderInstructionBuildError,
+    QpackEncoderInstructionParseError, QpackEncoderInstructions,
     QpackEncoderInstructionsApplyError, QpackEncoderInstructionsParseError,
     QpackEncoderOutstandingSection, QpackEncoderState, QpackEncoderStateError, QpackFieldLine,
     QpackFieldLineBuildError, QpackFieldLineIter, QpackFieldLineParseError, QpackFieldLines,
-    QpackFieldPlan, QpackFieldSectionBase, QpackFieldSectionBlocked, QpackFieldSectionContext,
-    QpackFieldSectionContextError, QpackFieldSectionDecodeError, QpackFieldSectionDecodeOutcome,
-    QpackFieldSectionDecoder, QpackFieldSectionEncodeBuffers, QpackFieldSectionEncodeError,
-    QpackFieldSectionEncoder, QpackFieldSectionOutput, QpackFieldSectionPlanError,
-    QpackFieldSectionPlanSlot, QpackFieldSectionPrefix, QpackFieldSectionPrefixBuildError,
-    QpackFieldSectionPrefixBuilder, QpackFieldSectionPrefixParseError, QpackHeaderFieldRef,
-    QpackHuffmanDecodeError, QpackHuffmanDecoder, QpackHuffmanEncodeError, QpackHuffmanEncoder,
+    QpackFieldPlan, QpackFieldSectionBase, QpackFieldSectionContext, QpackFieldSectionContextError,
+    QpackFieldSectionDecodeError, QpackFieldSectionDecodeOutcome, QpackFieldSectionDecoder,
+    QpackFieldSectionEncodeBuffers, QpackFieldSectionEncodeError, QpackFieldSectionEncoder,
+    QpackFieldSectionOutput, QpackFieldSectionPlanError, QpackFieldSectionPlanSlot,
+    QpackFieldSectionPrefix, QpackFieldSectionPrefixBuildError, QpackFieldSectionPrefixBuilder,
+    QpackFieldSectionPrefixParseError, QpackHeaderFieldRef, QpackHuffmanDecodeError,
+    QpackHuffmanDecoder, QpackHuffmanEncodeError, QpackHuffmanEncoder,
     QpackIndexedFieldLineBuilder, QpackIndexedPostBaseFieldLineBuilder,
     QpackInsertCountIncrementBuilder, QpackInsertWithLiteralNameBuilder,
     QpackInsertWithNameReferenceBuilder, QpackInteger, QpackIntegerBuildError, QpackIntegerBuilder,
     QpackIntegerParseError, QpackLiteralNameFieldLineBuilder,
     QpackLiteralNameReferenceFieldLineBuilder, QpackLiteralPostBaseNameReferenceFieldLineBuilder,
-    QpackReadyBlockedStreamIter, QpackSetDynamicTableCapacityBuilder, QpackStaticTable,
-    QpackStringLiteral, QpackStringLiteralBuildError, QpackStringLiteralBuilder,
-    QpackStringLiteralParseError, qpack,
+    QpackSetDynamicTableCapacityBuilder, QpackStaticTable, QpackStringLiteral,
+    QpackStringLiteralBuildError, QpackStringLiteralBuilder, QpackStringLiteralParseError,
 };
 
 #[test]
@@ -375,31 +374,15 @@ fn static_table_matches_rfc9204_appendix_a() {
 }
 
 #[test]
-fn header_fields_are_byte_opaque_and_both_facades_are_available() {
+fn header_fields_are_byte_opaque_and_public_namespace_is_available() {
     let field = QpackHeaderFieldRef::new(&[0xff, 0][..], &[0x80, 0][..]);
     assert_eq!(field.name(), &[0xff, 0]);
     assert_eq!(field.value(), &[0x80, 0]);
-    let root_bytes = [0];
-    let root: Result<QpackInteger<'_>, QpackIntegerParseError> =
-        QpackInteger::parse(&root_bytes, 8);
-    assert_eq!(root.map(QpackInteger::value), Ok(0));
-    let module_bytes = [0];
-    let module: Result<qpack::QpackInteger<'_>, qpack::QpackIntegerParseError> =
-        qpack::QpackInteger::parse(&module_bytes, 8);
-    assert_eq!(module.map(qpack::QpackInteger::value), Ok(0));
-    let _: usize = qpack::QPACK_STATIC_TABLE_LEN;
-    let _: Option<qpack::QpackHeaderFieldRef<'static>> = qpack::QpackStaticTable::get(0);
-    let _: Option<QpackStringLiteral<'static>> = None;
-    let _: Option<qpack::QpackStringLiteral<'static>> = None;
-    let _: Option<QpackHuffmanDecodeError> = None;
-    let _: Option<qpack::QpackHuffmanDecodeError> = None;
-    let _: Option<QpackHuffmanEncodeError> = None;
-    let _: Option<qpack::QpackHuffmanEncodeError> = None;
-    let mut root_huffman_output = [];
-    let _: QpackHuffmanEncoder<'_, '_> = QpackHuffmanEncoder::new(b"", &mut root_huffman_output);
-    let mut module_huffman_output = [];
-    let _: qpack::QpackHuffmanDecoder<'_, '_> =
-        qpack::QpackHuffmanDecoder::new(b"", &mut module_huffman_output);
+    let bytes = [0];
+    assert_eq!(
+        net_wire::qpack::QpackInteger::parse(&bytes, 8).map(net_wire::qpack::QpackInteger::value),
+        Ok(0)
+    );
 }
 
 #[test]
@@ -652,7 +635,7 @@ fn qpack_dynamic_table_mutation_failures_are_atomic() {
 }
 
 #[test]
-fn qpack_dynamic_table_relative_post_base_errors_and_facades_are_exact() {
+fn qpack_dynamic_table_relative_post_base_errors_are_exact() {
     let mut storage = [0; 70];
     let mut entries = [QpackDynamicTableEntry::EMPTY; 3];
     let mut table = QpackDynamicTable::new(&mut storage, &mut entries);
@@ -739,12 +722,6 @@ fn qpack_dynamic_table_relative_post_base_errors_and_facades_are_exact() {
             insert_count: 3
         })
     );
-    let _: Option<QpackDynamicTable<'static, 'static>> = None;
-    let _: Option<QpackDynamicTableEntry> = None;
-    let _: Option<QpackDynamicTableError> = None;
-    let _: Option<qpack::QpackDynamicTable<'static, 'static>> = None;
-    let _: Option<qpack::QpackDynamicTableEntry> = None;
-    let _: Option<qpack::QpackDynamicTableError> = None;
 }
 
 #[test]
@@ -1201,17 +1178,6 @@ fn qpack_encoder_instruction_builders_emit_rfc_vectors_and_are_atomic() {
 }
 
 #[test]
-fn qpack_encoder_instruction_facades_expose_new_types() {
-    let _: Option<QpackDuplicate<'static>> = None;
-    let _: Option<qpack::QpackDuplicate<'static>> = None;
-    let _: Option<qpack::QpackEncoderInstructionIter<'static>> = None;
-    let _: Option<qpack::QpackEncoderInstructions<'static>> = None;
-    let _: Option<qpack::QpackInsertWithNameReference<'static>> = None;
-    let _: Option<qpack::QpackInsertWithLiteralName<'static>> = None;
-    let _: Option<qpack::QpackSetDynamicTableCapacity<'static>> = None;
-}
-
-#[test]
 fn qpack_encoder_instruction_wire_families_preserve_noncanonical_fields_and_flags() {
     let capacity = [0x3f, 0x80, 0, 0xaa];
     let duplicate = [0x1f, 0x80, 0, 0xaa];
@@ -1601,22 +1567,7 @@ fn qpack_encoder_instruction_builders_cover_boundaries_flags_atomicity_and_lifet
 }
 
 #[test]
-fn qpack_encoder_instruction_all_public_facades_compile() {
-    let _: Option<net_wire::QpackEncoderInstruction<'static>> = None;
-    let _: Option<net_wire::QpackSetDynamicTableCapacity<'static>> = None;
-    let _: Option<net_wire::QpackInsertWithNameReference<'static>> = None;
-    let _: Option<net_wire::QpackInsertWithLiteralName<'static>> = None;
-    let _: Option<net_wire::QpackDuplicate<'static>> = None;
-    let _: Option<net_wire::QpackEncoderInstructions<'static>> = None;
-    let _: Option<net_wire::QpackEncoderInstructionIter<'static>> = None;
-    let _: Option<net_wire::QpackEncoderInstructionParseError> = None;
-    let _: Option<net_wire::QpackEncoderInstructionsParseError> = None;
-    let _: Option<net_wire::QpackEncoderInstructionBuildError> = None;
-    let _: Option<net_wire::QpackSetDynamicTableCapacityBuilder<'static>> = None;
-    let _: Option<net_wire::QpackInsertWithNameReferenceBuilder<'static, 'static>> = None;
-    let _: Option<net_wire::QpackInsertWithLiteralNameBuilder<'static, 'static, 'static>> = None;
-    let _: Option<net_wire::QpackDuplicateBuilder<'static>> = None;
-
+fn qpack_encoder_instruction_public_namespace_compiles() {
     let _: Option<qpack::QpackEncoderInstruction<'static>> = None;
     let _: Option<qpack::QpackSetDynamicTableCapacity<'static>> = None;
     let _: Option<qpack::QpackInsertWithNameReference<'static>> = None;
@@ -1863,13 +1814,7 @@ fn qpack_encoder_stream_dynamic_sources_survive_self_eviction() {
 }
 
 #[test]
-fn qpack_encoder_stream_failures_classification_atomicity_and_facades_are_exact() {
-    let _: Option<QpackEncoderInstructionApplier> = None;
-    let _: Option<QpackEncoderInstructionApplyError> = None;
-    let _: Option<QpackEncoderInstructionApplyOutcome> = None;
-    let _: Option<qpack::QpackEncoderInstructionApplier> = None;
-    let _: Option<qpack::QpackEncoderInstructionApplyError> = None;
-    let _: Option<qpack::QpackEncoderInstructionApplyOutcome> = None;
+fn qpack_encoder_stream_failures_classification_and_atomicity_are_exact() {
     assert_eq!(
         QpackEncoderInstructionApplier::new(100).maximum_dynamic_table_capacity(),
         100
@@ -2078,9 +2023,7 @@ fn qpack_encoder_stream_failures_classification_atomicity_and_facades_are_exact(
 }
 
 #[test]
-fn qpack_encoder_stream_sequence_applies_appendix_b_empty_and_facades_exactly() {
-    let _: Option<net_wire::QpackEncoderInstructionsApplyError> = None;
-    let _: Option<QpackEncoderInstructionsApplyError> = None;
+fn qpack_encoder_stream_sequence_applies_appendix_b_and_empty_input_exactly() {
     let _: Option<qpack::QpackEncoderInstructionsApplyError> = None;
 
     let applier = QpackEncoderInstructionApplier::new(220);
@@ -2490,21 +2433,10 @@ fn qpack_field_section_context_invalid_counts_and_arithmetic_are_exact() {
 }
 
 #[test]
-fn qpack_field_section_context_public_facades_are_complete() {
-    let _: Option<QpackFieldSectionContext> = None;
-    let _: Option<QpackFieldSectionContextError> = None;
+fn qpack_field_section_context_public_namespace_is_complete() {
     let _: Option<qpack::QpackFieldSectionContext> = None;
     let _: Option<qpack::QpackFieldSectionContextError> = None;
 
-    let root: Result<QpackFieldSectionContext, QpackFieldSectionContextError> =
-        match QpackFieldSectionPrefix::parse(&[0x04, 0x82]) {
-            Ok(prefix) => QpackFieldSectionContext::decode(prefix, 10, 100),
-            Err(error) => panic!("{error}"),
-        };
-    assert_eq!(
-        root.map(|context| (context.required_insert_count(), context.base())),
-        Ok((9, 6))
-    );
     let module: Result<qpack::QpackFieldSectionContext, qpack::QpackFieldSectionContextError> =
         match qpack::QpackFieldSectionPrefix::parse(&[0x04, 0x82]) {
             Ok(prefix) => qpack::QpackFieldSectionContext::decode(prefix, 10, 100),
@@ -2608,15 +2540,6 @@ fn qpack_field_section_prefix_builder_is_canonical_atomic_and_destination_only()
     );
     assert_eq!(prefix.delta_base().value(), QPACK_INTEGER_MAX);
     assert!(prefix.is_negative());
-
-    let _: Option<net_wire::QpackFieldSectionPrefix<'static>> = None;
-    let _: Option<net_wire::QpackFieldSectionPrefixParseError> = None;
-    let _: Option<net_wire::QpackFieldSectionPrefixBuildError> = None;
-    let _: Option<net_wire::QpackFieldSectionPrefixBuilder<'static>> = None;
-    let _: Option<qpack::QpackFieldSectionPrefix<'static>> = None;
-    let _: Option<qpack::QpackFieldSectionPrefixParseError> = None;
-    let _: Option<qpack::QpackFieldSectionPrefixBuildError> = None;
-    let _: Option<qpack::QpackFieldSectionPrefixBuilder<'static>> = None;
 }
 
 fn controlled_mask(prefix_bits: u8) -> u8 {
@@ -2787,7 +2710,7 @@ fn qpack_decoder_instruction_truncation_sequence_and_iteration_are_exact() {
 fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
     let mut acknowledgment = [0xaa; 2];
     assert_eq!(
-        net_wire::QpackSectionAcknowledgmentBuilder::new(&mut acknowledgment, 4)
+        net_wire::qpack::QpackSectionAcknowledgmentBuilder::new(&mut acknowledgment, 4)
             .build()
             .map(|instruction| instruction.as_bytes()),
         Ok(&[0x84][..])
@@ -2795,7 +2718,7 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
     assert_eq!(acknowledgment[1], 0xaa);
     let mut cancellation = [0xaa; 2];
     assert_eq!(
-        net_wire::QpackStreamCancellationBuilder::new(&mut cancellation, 8)
+        net_wire::qpack::QpackStreamCancellationBuilder::new(&mut cancellation, 8)
             .build()
             .map(|instruction| instruction.as_bytes()),
         Ok(&[0x48][..])
@@ -2803,7 +2726,7 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
     assert_eq!(cancellation[1], 0xaa);
     let mut increment = [0xaa; 2];
     assert_eq!(
-        net_wire::QpackInsertCountIncrementBuilder::new(&mut increment, 1)
+        net_wire::qpack::QpackInsertCountIncrementBuilder::new(&mut increment, 1)
             .build()
             .map(|instruction| instruction.as_bytes()),
         Ok(&[0x01][..])
@@ -2811,7 +2734,7 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
     assert_eq!(increment[1], 0xaa);
     let mut zero = [0xaa; 1];
     assert_eq!(
-        net_wire::QpackInsertCountIncrementBuilder::new(&mut zero, 0)
+        net_wire::qpack::QpackInsertCountIncrementBuilder::new(&mut zero, 0)
             .build()
             .map(|instruction| (instruction.increment().value(), instruction.as_bytes())),
         Ok((0, &[0][..]))
@@ -2819,21 +2742,21 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
 
     let mut acknowledgment_boundary = [0xaa; 2];
     assert_eq!(
-        net_wire::QpackSectionAcknowledgmentBuilder::new(&mut acknowledgment_boundary, 127)
+        net_wire::qpack::QpackSectionAcknowledgmentBuilder::new(&mut acknowledgment_boundary, 127)
             .build()
             .map(|instruction| instruction.as_bytes()),
         Ok(&[0xff, 0][..])
     );
     let mut cancellation_boundary = [0xaa; 2];
     assert_eq!(
-        net_wire::QpackStreamCancellationBuilder::new(&mut cancellation_boundary, 63)
+        net_wire::qpack::QpackStreamCancellationBuilder::new(&mut cancellation_boundary, 63)
             .build()
             .map(|instruction| instruction.as_bytes()),
         Ok(&[0x7f, 0][..])
     );
     let mut increment_boundary = [0xaa; 2];
     assert_eq!(
-        net_wire::QpackInsertCountIncrementBuilder::new(&mut increment_boundary, 63)
+        net_wire::qpack::QpackInsertCountIncrementBuilder::new(&mut increment_boundary, 63)
             .build()
             .map(|instruction| instruction.as_bytes()),
         Ok(&[0x3f, 0][..])
@@ -2846,21 +2769,21 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
     let mut section = [0xaa; 1];
     let before = section;
     assert_eq!(
-        net_wire::QpackSectionAcknowledgmentBuilder::new(&mut section[..0], 4).build(),
+        net_wire::qpack::QpackSectionAcknowledgmentBuilder::new(&mut section[..0], 4).build(),
         Err(error)
     );
     assert_eq!(section, before);
     let mut cancel = [0xaa; 1];
     let before = cancel;
     assert_eq!(
-        net_wire::QpackStreamCancellationBuilder::new(&mut cancel[..0], 8).build(),
+        net_wire::qpack::QpackStreamCancellationBuilder::new(&mut cancel[..0], 8).build(),
         Err(error)
     );
     assert_eq!(cancel, before);
     let mut count = [0xaa; 1];
     let before = count;
     assert_eq!(
-        net_wire::QpackInsertCountIncrementBuilder::new(&mut count[..0], 0).build(),
+        net_wire::qpack::QpackInsertCountIncrementBuilder::new(&mut count[..0], 0).build(),
         Err(error)
     );
     assert_eq!(count, before);
@@ -2869,7 +2792,7 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
     let mut section = [0xaa; 16];
     let before = section;
     assert_eq!(
-        net_wire::QpackSectionAcknowledgmentBuilder::new(&mut section, too_large).build(),
+        net_wire::qpack::QpackSectionAcknowledgmentBuilder::new(&mut section, too_large).build(),
         Err(QpackDecoderInstructionBuildError::SectionAcknowledgment(
             QpackIntegerBuildError::ValueTooLarge { value: too_large },
         ))
@@ -2878,7 +2801,7 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
     let mut cancel = [0xaa; 16];
     let before = cancel;
     assert_eq!(
-        net_wire::QpackStreamCancellationBuilder::new(&mut cancel, too_large).build(),
+        net_wire::qpack::QpackStreamCancellationBuilder::new(&mut cancel, too_large).build(),
         Err(QpackDecoderInstructionBuildError::StreamCancellation(
             QpackIntegerBuildError::ValueTooLarge { value: too_large },
         ))
@@ -2887,7 +2810,7 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
     let mut count = [0xaa; 16];
     let before = count;
     assert_eq!(
-        net_wire::QpackInsertCountIncrementBuilder::new(&mut count, too_large).build(),
+        net_wire::qpack::QpackInsertCountIncrementBuilder::new(&mut count, too_large).build(),
         Err(QpackDecoderInstructionBuildError::InsertCountIncrement(
             QpackIntegerBuildError::ValueTooLarge { value: too_large },
         ))
@@ -2896,20 +2819,7 @@ fn qpack_decoder_instruction_builders_are_canonical_and_atomic() {
 }
 
 #[test]
-fn qpack_decoder_instruction_all_public_facades_compile() {
-    let _: Option<net_wire::QpackDecoderInstruction<'static>> = None;
-    let _: Option<net_wire::QpackSectionAcknowledgment<'static>> = None;
-    let _: Option<net_wire::QpackStreamCancellation<'static>> = None;
-    let _: Option<net_wire::QpackInsertCountIncrement<'static>> = None;
-    let _: Option<net_wire::QpackDecoderInstructions<'static>> = None;
-    let _: Option<net_wire::QpackDecoderInstructionIter<'static>> = None;
-    let _: Option<net_wire::QpackDecoderInstructionParseError> = None;
-    let _: Option<net_wire::QpackDecoderInstructionsParseError> = None;
-    let _: Option<net_wire::QpackDecoderInstructionBuildError> = None;
-    let _: Option<net_wire::QpackSectionAcknowledgmentBuilder<'static>> = None;
-    let _: Option<net_wire::QpackStreamCancellationBuilder<'static>> = None;
-    let _: Option<net_wire::QpackInsertCountIncrementBuilder<'static>> = None;
-
+fn qpack_decoder_instruction_public_namespace_compiles() {
     let _: Option<qpack::QpackDecoderInstruction<'static>> = None;
     let _: Option<qpack::QpackSectionAcknowledgment<'static>> = None;
     let _: Option<qpack::QpackStreamCancellation<'static>> = None;
@@ -3263,7 +3173,7 @@ fn qpack_field_line_builders_are_canonical_exact_and_destination_only() {
 }
 
 #[test]
-fn qpack_field_line_builder_failures_are_atomic_and_facades_are_complete() {
+fn qpack_field_line_builder_failures_are_atomic() {
     let mut short = [0xaa; 4];
     let before = short;
     assert_eq!(
@@ -3312,25 +3222,10 @@ fn qpack_field_line_builder_failures_are_atomic_and_facades_are_complete() {
         )
     );
     assert_eq!(post_base, before);
-
-    let _: Option<net_wire::QpackFieldLineBuildError> = None;
-    let _: Option<net_wire::QpackIndexedFieldLineBuilder<'static>> = None;
-    let _: Option<net_wire::QpackIndexedPostBaseFieldLineBuilder<'static>> = None;
-    let _: Option<net_wire::QpackLiteralNameReferenceFieldLineBuilder<'static, 'static>> = None;
-    let _: Option<net_wire::QpackLiteralPostBaseNameReferenceFieldLineBuilder<'static, 'static>> =
-        None;
-    let _: Option<net_wire::QpackLiteralNameFieldLineBuilder<'static, 'static, 'static>> = None;
-    let _: Option<qpack::QpackFieldLineBuildError> = None;
-    let _: Option<qpack::QpackIndexedFieldLineBuilder<'static>> = None;
-    let _: Option<qpack::QpackIndexedPostBaseFieldLineBuilder<'static>> = None;
-    let _: Option<qpack::QpackLiteralNameReferenceFieldLineBuilder<'static, 'static>> = None;
-    let _: Option<qpack::QpackLiteralPostBaseNameReferenceFieldLineBuilder<'static, 'static>> =
-        None;
-    let _: Option<qpack::QpackLiteralNameFieldLineBuilder<'static, 'static, 'static>> = None;
 }
 
 #[test]
-fn qpack_field_lines_sequence_iteration_and_public_facades_are_exact() {
+fn qpack_field_lines_sequence_iteration_is_exact() {
     let bytes = [0x80, 0x10, 0x00, 1, b'x', 0x21, b'n', 1, b'v'];
     let lines = QpackFieldLines::parse(&bytes).expect("field-line sequence");
     assert_eq!(lines.as_bytes(), &bytes);
@@ -3382,50 +3277,10 @@ fn qpack_field_lines_sequence_iteration_and_public_facades_are_exact() {
     assert_eq!(iter.next(), Some(Err(expected)));
     assert_eq!(iter.next(), None);
     assert_eq!(iter.next(), None);
-
-    let _: Option<net_wire::QpackFieldLine<'static>> = None;
-    let _: Option<net_wire::QpackIndexedFieldLine<'static>> = None;
-    let _: Option<net_wire::QpackIndexedPostBaseFieldLine<'static>> = None;
-    let _: Option<net_wire::QpackLiteralNameReferenceFieldLine<'static>> = None;
-    let _: Option<net_wire::QpackLiteralPostBaseNameReferenceFieldLine<'static>> = None;
-    let _: Option<net_wire::QpackLiteralNameFieldLine<'static>> = None;
-    let _: Option<net_wire::QpackFieldLineParseError> = None;
-    let _: Option<net_wire::QpackFieldLines<'static>> = None;
-    let _: Option<net_wire::QpackFieldLinesParseError> = None;
-    let _: Option<net_wire::QpackFieldLineIter<'static>> = None;
-    let _: Option<qpack::QpackFieldLine<'static>> = None;
-    let _: Option<qpack::QpackIndexedFieldLine<'static>> = None;
-    let _: Option<qpack::QpackIndexedPostBaseFieldLine<'static>> = None;
-    let _: Option<qpack::QpackLiteralNameReferenceFieldLine<'static>> = None;
-    let _: Option<qpack::QpackLiteralPostBaseNameReferenceFieldLine<'static>> = None;
-    let _: Option<qpack::QpackLiteralNameFieldLine<'static>> = None;
-    let _: Option<qpack::QpackFieldLineParseError> = None;
-    let _: Option<qpack::QpackFieldLines<'static>> = None;
-    let _: Option<qpack::QpackFieldLinesParseError> = None;
-    let _: Option<qpack::QpackFieldLineIter<'static>> = None;
 }
 
 #[test]
-fn qpack_field_section_decoder_all_forms_order_flags_and_facades_are_exact() {
-    let _: Option<QpackDecodedFieldEntry> = None;
-    let _: Option<QpackDecodedFieldRef<'static>> = None;
-    let _: Option<QpackDecodedFieldIter<'static>> = None;
-    let _: Option<QpackDecodedFieldSection<'static>> = None;
-    let _: Option<QpackFieldSectionBlocked> = None;
-    let _: Option<QpackFieldSectionDecodeError> = None;
-    let _: Option<QpackFieldSectionDecodeOutcome<'static>> = None;
-    let _: Option<QpackFieldSectionDecoder> = None;
-    let _: Option<QpackFieldSectionOutput<'static, 'static>> = None;
-    let _: Option<qpack::QpackDecodedFieldEntry> = None;
-    let _: Option<qpack::QpackDecodedFieldRef<'static>> = None;
-    let _: Option<qpack::QpackDecodedFieldIter<'static>> = None;
-    let _: Option<qpack::QpackDecodedFieldSection<'static>> = None;
-    let _: Option<qpack::QpackFieldSectionBlocked> = None;
-    let _: Option<qpack::QpackFieldSectionDecodeError> = None;
-    let _: Option<qpack::QpackFieldSectionDecodeOutcome<'static>> = None;
-    let _: Option<qpack::QpackFieldSectionDecoder> = None;
-    let _: Option<qpack::QpackFieldSectionOutput<'static, 'static>> = None;
-
+fn qpack_field_section_decoder_all_forms_order_and_flags_are_exact() {
     let mut storage = [0; 104];
     let mut table_entries = [QpackDynamicTableEntry::EMPTY; 4];
     let mut table = QpackDynamicTable::new(&mut storage, &mut table_entries);
@@ -3771,17 +3626,8 @@ fn qpack_field_section_decoder_blocked_retry_is_exact_and_non_mutating() {
 }
 
 #[test]
-fn qpack_decoder_feedback_state_starts_empty_and_facades_are_complete() {
-    let _: Option<net_wire::QpackDecoderState> = None;
-    let _: Option<net_wire::QpackDecoderFeedbackError> = None;
-    let _: Option<qpack::QpackDecoderState> = None;
-    let _: Option<qpack::QpackDecoderFeedbackError> = None;
-
-    assert_eq!(
-        net_wire::QpackDecoderState::default().known_received_count(),
-        0
-    );
-    assert_eq!(qpack::QpackDecoderState::new().known_received_count(), 0);
+fn qpack_decoder_feedback_state_starts_empty() {
+    assert_eq!(QpackDecoderState::default().known_received_count(), 0);
 }
 
 #[test]
@@ -4091,14 +3937,7 @@ fn qpack_decoder_feedback_insert_count_increments_are_coalesced_atomic_and_bound
 }
 
 #[test]
-fn qpack_encoder_state_initialization_zero_reference_and_facades_are_exact() {
-    let _: Option<QpackEncoderOutstandingSection> = None;
-    let _: Option<QpackEncoderState<'static, 'static>> = None;
-    let _: Option<QpackEncoderStateError> = None;
-    let _: Option<qpack::QpackEncoderOutstandingSection> = None;
-    let _: Option<qpack::QpackEncoderState<'static, 'static>> = None;
-    let _: Option<qpack::QpackEncoderStateError> = None;
-
+fn qpack_encoder_state_initialization_and_zero_reference_are_exact() {
     let mut sections = [QpackEncoderOutstandingSection::EMPTY; 2];
     let mut references = [9; 3];
     {
@@ -4610,10 +4449,7 @@ fn qpack_encoder_state_cancellation_removes_all_matching_sections() {
 }
 
 #[test]
-fn qpack_encoder_state_insert_count_increment_errors_overflow_and_facades_are_exact() {
-    let _: Option<QpackDecoderInstructionApplyError> = None;
-    let _: Option<qpack::QpackDecoderInstructionApplyError> = None;
-
+fn qpack_encoder_state_insert_count_increment_errors_and_overflow_are_exact() {
     let mut sections = [QpackEncoderOutstandingSection::EMPTY; 2];
     let mut references = [0; 2];
     {
@@ -4744,7 +4580,6 @@ fn qpack_encoder_state_insert_count_increment_errors_overflow_and_facades_are_ex
 
 #[test]
 fn qpack_encoder_state_apply_sequence_mixes_instructions_and_preserves_packed_storage() {
-    let _: Option<net_wire::QpackDecoderInstructionsApplyError> = None;
     let _: Option<qpack::QpackDecoderInstructionsApplyError> = None;
 
     let mut no_sections = [];
@@ -4914,16 +4749,7 @@ fn qpack_encoder_state_apply_sequence_commits_prefix_at_exact_failure_offset() {
 }
 
 #[test]
-fn qpack_blocked_streams_limits_storage_and_facades_are_exact() {
-    let _: Option<QpackBlockedStream> = None;
-    let _: Option<QpackBlockedStreams<'static>> = None;
-    let _: Option<QpackBlockedStreamsError> = None;
-    let _: Option<QpackReadyBlockedStreamIter<'static>> = None;
-    let _: Option<qpack::QpackBlockedStream> = None;
-    let _: Option<qpack::QpackBlockedStreams<'static>> = None;
-    let _: Option<qpack::QpackBlockedStreamsError> = None;
-    let _: Option<qpack::QpackReadyBlockedStreamIter<'static>> = None;
-
+fn qpack_blocked_streams_limits_storage_are_exact() {
     let blocked = |encoded: &[u8]| {
         let mut storage = [];
         let mut entries = [];
@@ -5185,17 +5011,6 @@ fn qpack_blocked_streams_ready_iteration_is_ordered_fused_and_non_mutating() {
 
 #[test]
 fn qpack_field_section_encoder_static_forms_are_exact_and_unregistered() {
-    let _: Option<QpackFieldSectionEncoder> = None;
-    let _: Option<QpackFieldPlan<'static>> = None;
-    let _: Option<QpackFieldSectionBase> = None;
-    let _: Option<QpackFieldSectionEncodeBuffers<'static, 'static, 'static>> = None;
-    let _: Option<QpackFieldSectionPlanSlot<'static>> = None;
-    let _: Option<QpackFieldSectionEncodeError> = None;
-    let _: Option<QpackFieldSectionPlanError> = None;
-    let _: Option<qpack::QpackFieldSectionEncoder> = None;
-    let _: Option<qpack::QpackFieldPlan<'static>> = None;
-    let _: Option<qpack::QpackFieldSectionEncodeBuffers<'static, 'static, 'static>> = None;
-
     let mut table_bytes = [];
     let mut table_entries = [];
     let table = QpackDynamicTable::new(&mut table_bytes, &mut table_entries);

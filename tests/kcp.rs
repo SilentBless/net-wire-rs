@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::iter::FusedIterator;
 
-use net_wire::{
+use net_wire::kcp::{
     KCP_SEGMENT_HEADER_LEN, KcpCommand, KcpConversationId, KcpFragment, KcpKnownCommand,
     KcpSegment, KcpSegmentBuildError, KcpSegmentBuilder, KcpSegmentIter, KcpSegmentMut,
     KcpSegmentParseError, KcpSegments, KcpSegmentsParseError, KcpSequenceNumber, KcpTimestamp,
@@ -14,13 +14,8 @@ const SEGMENT: [u8; 27] = [
 ];
 
 #[test]
-fn public_facades_and_scalars_preserve_wire_values() {
+fn canonical_namespace_and_scalars_preserve_wire_values() {
     let _: net_wire::kcp::KcpConversationId = KcpConversationId::new(1);
-    let _: net_wire::kcp::KcpCommand = KcpCommand::PUSH;
-    let _: net_wire::kcp::KcpFragment = KcpFragment::new(0);
-    let _: net_wire::kcp::KcpTimestamp = KcpTimestamp::new(0);
-    let _: net_wire::kcp::KcpSequenceNumber = KcpSequenceNumber::new(0);
-    let _: net_wire::kcp::KcpUnacknowledged = KcpUnacknowledged::new(0);
     assert_eq!(KCP_SEGMENT_HEADER_LEN, 24);
 
     assert_eq!(KcpConversationId::new(u32::MAX).raw(), u32::MAX);
@@ -296,7 +291,7 @@ fn mutable_segment_updates_fields_and_payload_without_changing_boundary() {
 #[cfg(feature = "udp")]
 #[test]
 fn udp_adapter_validates_exact_complete_kcp_payloads() {
-    use net_wire::UdpDatagram;
+    use net_wire::udp::UdpDatagram;
 
     let datagram = [
         0, 1, 0, 2, 0, 35, 0, 0, 0x44, 0x33, 0x22, 0x11, 0x51, 0x02, 0x66, 0x55, 0xaa, 0x99, 0x88,

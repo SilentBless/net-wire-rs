@@ -1,4 +1,4 @@
-use net_wire::*;
+use net_wire::http1::*;
 
 #[test]
 fn request_head_is_strict_bounded_and_preserves_fields() {

@@ -1,4 +1,4 @@
-use net_wire::*;
+use net_wire::tls::*;
 
 fn only_extension(bytes: &[u8]) -> TlsExtension<'_> {
     let mut extensions = TlsExtensions::new(bytes);

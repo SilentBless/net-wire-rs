@@ -1,4 +1,4 @@
-use net_wire::*;
+use net_wire::http2::*;
 
 #[test]
 fn client_preface_is_exact_and_bounded() {
