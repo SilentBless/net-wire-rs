@@ -4,4 +4,4 @@ mod builder;
 mod datagram;
 
 pub use builder::{UdpDatagramBuildError, UdpDatagramBuilder};
-pub use datagram::{UdpChecksumStatus, UdpDatagram, UdpDatagramMut};
+pub use datagram::{UdpDatagram, UdpDatagramMut};

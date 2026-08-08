@@ -3,10 +3,13 @@
 use super::Ipv4Address;
 #[cfg(any(feature = "tcp", feature = "udp"))]
 use crate::checksum::{self, add_ipv4_pseudoheader};
-#[cfg(feature = "tcp")]
-use crate::{PseudoHeaderChecksumError, TcpSegment, TcpSegmentMut};
 #[cfg(feature = "udp")]
-use crate::{UdpChecksumStatus, UdpDatagram, UdpDatagramMut};
+use crate::udp::{UdpDatagram, UdpDatagramMut};
+#[cfg(feature = "tcp")]
+use crate::{
+    pseudoheader::PseudoHeaderChecksumError,
+    tcp::{TcpSegment, TcpSegmentMut},
+};
 
 #[cfg(feature = "tcp")]
 const TCP_PROTOCOL: u8 = 6;
@@ -93,6 +96,18 @@ fn tcp_ipv4_length(bytes: &[u8]) -> Result<u16, PseudoHeaderChecksumError> {
         maximum: usize::from(u16::MAX),
         actual: bytes.len(),
     })
+}
+
+/// The validation state of an IPv4 UDP checksum.
+#[cfg(feature = "udp")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UdpChecksumStatus {
+    /// UDP has no IPv4 checksum.
+    NotPresent,
+    /// The encoded checksum is valid.
+    Valid,
+    /// The encoded checksum is invalid.
+    Invalid,
 }
 
 #[cfg(feature = "udp")]

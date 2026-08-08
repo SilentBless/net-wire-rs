@@ -1,19 +1,8 @@
 //! Checked borrowed UDP datagram views.
 
-use crate::ParseError;
+use crate::error::ParseError;
 
-const HEADER_LENGTH: usize = 8;
-
-/// The validation state of an IPv4 UDP checksum.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum UdpChecksumStatus {
-    /// UDP has no IPv4 checksum.
-    NotPresent,
-    /// The encoded checksum is valid.
-    Valid,
-    /// The encoded checksum is invalid.
-    Invalid,
-}
+pub(super) const HEADER_LENGTH: usize = 8;
 
 /// A structurally validated UDP datagram.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

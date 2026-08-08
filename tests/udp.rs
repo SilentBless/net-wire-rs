@@ -1,4 +1,8 @@
-use net_wire::*;
+#[cfg(feature = "ipv4")]
+use net_wire::ipv4::{Ipv4Address, UdpChecksumStatus};
+#[cfg(feature = "ipv6")]
+use net_wire::ipv6::Ipv6Address;
+use net_wire::{ParseError, udp::*};
 
 fn checksum(bytes: &[u8]) -> u16 {
     let mut sum = 0u32;

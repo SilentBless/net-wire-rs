@@ -1,9 +1,7 @@
 //! UDP caller-buffer builder.
 
-use super::UdpDatagramMut;
+use super::datagram::{HEADER_LENGTH, UdpDatagramMut};
 use core::fmt;
-
-const HEADER_LENGTH: usize = 8;
 
 /// Failure to construct a UDP datagram in caller-provided storage.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
