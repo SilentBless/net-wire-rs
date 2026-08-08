@@ -5,12 +5,15 @@
 //! sequence (FCS) before parsing; every supplied byte after the fixed header is payload.
 
 mod address;
+mod builder;
 mod ether_type;
 mod frame;
 
 /// Ethernet hardware addresses.
 pub use address::MacAddress;
+/// Ethernet II frame construction.
+pub use builder::{EthernetFrameBuildError, EthernetFrameBuilder};
 /// Ethernet protocol type values.
 pub use ether_type::EtherType;
-/// Ethernet II frame views and caller-buffer construction.
-pub use frame::{EthernetFrame, EthernetFrameBuildError, EthernetFrameBuilder, EthernetFrameMut};
+/// Ethernet II frame views.
+pub use frame::{EthernetFrame, EthernetFrameMut};
