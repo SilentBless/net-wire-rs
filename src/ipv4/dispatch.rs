@@ -4,11 +4,11 @@ use super::packet::{Ipv4Packet, Ipv4PacketMut};
 use super::protocol::Ipv4Protocol;
 use crate::error::ParseError;
 #[cfg(feature = "icmpv4")]
-use crate::icmpv4::{Icmpv4Message, Icmpv4MessageMut};
+use crate::icmpv4::message::{Icmpv4Message, Icmpv4MessageMut};
 #[cfg(feature = "tcp")]
-use crate::tcp::{TcpSegment, TcpSegmentMut};
+use crate::tcp::segment::{TcpSegment, TcpSegmentMut};
 #[cfg(feature = "udp")]
-use crate::udp::{UdpDatagram, UdpDatagramMut};
+use crate::udp::datagram::{UdpDatagram, UdpDatagramMut};
 
 #[inline]
 fn is_non_atomic_fragment(flags_fragment_offset: u16) -> bool {

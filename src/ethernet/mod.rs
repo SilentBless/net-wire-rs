@@ -4,10 +4,10 @@
 //! [RFC 894](https://www.rfc-editor.org/rfc/rfc894). Callers must remove any frame check
 //! sequence (FCS) before parsing; every supplied byte after the fixed header is payload.
 
-mod address;
+pub(crate) mod address;
 mod builder;
-mod ether_type;
-mod frame;
+pub(crate) mod ether_type;
+pub(crate) mod frame;
 
 /// Ethernet hardware addresses.
 pub use address::MacAddress;

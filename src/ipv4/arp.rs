@@ -1,7 +1,7 @@
 //! IPv4 address integration for ARP packets.
 
 use super::address::Ipv4Address;
-use crate::arp::{ArpPacket, ArpProtocolType};
+use crate::arp::{packet::ArpPacket, types::ArpProtocolType};
 
 impl ArpPacket<'_> {
     /// Returns the sender IPv4 address when the protocol type is IPv4 and its size is four.

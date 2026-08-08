@@ -3,8 +3,8 @@
 mod builder;
 #[cfg(feature = "ethernet")]
 mod ethernet;
-mod packet;
-mod types;
+pub(crate) mod packet;
+pub(crate) mod types;
 
 pub use builder::{ArpPacketBuildError, ArpPacketBuilder};
 pub use packet::{ArpPacket, ArpPacketMut};

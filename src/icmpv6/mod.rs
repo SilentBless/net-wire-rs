@@ -1,7 +1,7 @@
 //! ICMPv6 wire messages (RFC 4443).
 
 mod builder;
-mod message;
+pub(crate) mod message;
 mod types;
 
 pub use builder::{Icmpv6MessageBuildError, Icmpv6MessageBuilder};

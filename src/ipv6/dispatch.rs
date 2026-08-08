@@ -5,11 +5,11 @@ use super::extensions;
 use super::next_header::Ipv6NextHeader;
 use super::packet::{Ipv6Packet, Ipv6PacketMut};
 #[cfg(feature = "icmpv6")]
-use crate::icmpv6::{Icmpv6Message, Icmpv6MessageMut};
+use crate::icmpv6::message::{Icmpv6Message, Icmpv6MessageMut};
 #[cfg(feature = "tcp")]
-use crate::tcp::{TcpSegment, TcpSegmentMut};
+use crate::tcp::segment::{TcpSegment, TcpSegmentMut};
 #[cfg(feature = "udp")]
-use crate::udp::{UdpDatagram, UdpDatagramMut};
+use crate::udp::datagram::{UdpDatagram, UdpDatagramMut};
 
 impl<'a> Ipv6Packet<'a> {
     /// Parses ICMPv6 after traversing supported IPv6 extension headers.

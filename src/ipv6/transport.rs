@@ -2,15 +2,15 @@
 
 use super::address::Ipv6Address;
 #[cfg(feature = "icmpv6")]
-use crate::icmpv6::{Icmpv6Message, Icmpv6MessageMut};
+use crate::icmpv6::message::{Icmpv6Message, Icmpv6MessageMut};
 #[cfg(any(feature = "icmpv6", feature = "tcp"))]
 use crate::internet_checksum::PseudoHeaderChecksumError;
 #[cfg(any(feature = "icmpv6", feature = "tcp", feature = "udp"))]
 use crate::internet_checksum::{self, add_ipv6_pseudoheader};
 #[cfg(feature = "tcp")]
-use crate::tcp::{TcpSegment, TcpSegmentMut};
+use crate::tcp::segment::{TcpSegment, TcpSegmentMut};
 #[cfg(feature = "udp")]
-use crate::udp::{UdpDatagram, UdpDatagramMut};
+use crate::udp::datagram::{UdpDatagram, UdpDatagramMut};
 
 #[cfg(feature = "icmpv6")]
 const ICMPV6_NEXT_HEADER: u8 = 58;

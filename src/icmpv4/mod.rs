@@ -1,7 +1,7 @@
 //! ICMPv4 wire messages (RFC 792).
 
 mod builder;
-mod message;
+pub(crate) mod message;
 mod types;
 
 pub use builder::{Icmpv4MessageBuildError, Icmpv4MessageBuilder};

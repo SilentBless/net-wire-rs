@@ -1,6 +1,6 @@
 //! Immutable UDP payload integration for KCP segment sequences.
 
-use crate::udp::UdpDatagram;
+use crate::udp::datagram::UdpDatagram;
 
 use super::error::KcpSegmentsParseError;
 use super::segments::KcpSegments;

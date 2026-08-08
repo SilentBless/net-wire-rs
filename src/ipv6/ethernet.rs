@@ -1,6 +1,9 @@
 use super::packet::{Ipv6Packet, Ipv6PacketMut};
 use crate::error::ParseError;
-use crate::ethernet::{EtherType, EthernetFrame, EthernetFrameMut};
+use crate::ethernet::{
+    ether_type::EtherType,
+    frame::{EthernetFrame, EthernetFrameMut},
+};
 
 impl<'a> EthernetFrame<'a> {
     /// Parses IPv6 only when this frame's EtherType is IPv6.

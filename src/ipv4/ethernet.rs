@@ -2,7 +2,10 @@
 
 use super::packet::{Ipv4Packet, Ipv4PacketMut};
 use crate::error::ParseError;
-use crate::ethernet::{EtherType, EthernetFrame, EthernetFrameMut};
+use crate::ethernet::{
+    ether_type::EtherType,
+    frame::{EthernetFrame, EthernetFrameMut},
+};
 
 impl<'a> EthernetFrame<'a> {
     /// Parses IPv4 only for the IPv4 EtherType.

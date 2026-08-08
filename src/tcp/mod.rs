@@ -2,7 +2,7 @@
 
 mod builder;
 mod flags;
-mod segment;
+pub(crate) mod segment;
 
 pub use builder::{TcpSegmentBuildError, TcpSegmentBuilder};
 pub use flags::TcpFlags;

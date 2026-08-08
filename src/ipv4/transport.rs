@@ -4,11 +4,11 @@ use super::address::Ipv4Address;
 #[cfg(any(feature = "tcp", feature = "udp"))]
 use crate::internet_checksum::{self, add_ipv4_pseudoheader};
 #[cfg(feature = "udp")]
-use crate::udp::{UdpDatagram, UdpDatagramMut};
+use crate::udp::datagram::{UdpDatagram, UdpDatagramMut};
 #[cfg(feature = "tcp")]
 use crate::{
     internet_checksum::PseudoHeaderChecksumError,
-    tcp::{TcpSegment, TcpSegmentMut},
+    tcp::segment::{TcpSegment, TcpSegmentMut},
 };
 
 #[cfg(feature = "tcp")]

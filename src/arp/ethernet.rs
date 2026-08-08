@@ -1,5 +1,9 @@
 use crate::error::ParseError;
-use crate::ethernet::{EtherType, EthernetFrame, EthernetFrameMut, MacAddress};
+use crate::ethernet::{
+    address::MacAddress,
+    ether_type::EtherType,
+    frame::{EthernetFrame, EthernetFrameMut},
+};
 
 use super::packet::{ArpPacket, ArpPacketMut};
 use super::types::ArpHardwareType;
