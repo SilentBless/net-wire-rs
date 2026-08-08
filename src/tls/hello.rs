@@ -1,8 +1,9 @@
 //! ClientHello and ServerHello wire views.
 
 use super::{
-    TlsCipherSuite, TlsCompressionMethod, TlsExtensionType, TlsExtensions, TlsParseError,
-    TlsProtocolVersion,
+    error::TlsParseError,
+    extensions::extension::TlsExtensions,
+    types::{TlsCipherSuite, TlsCompressionMethod, TlsExtensionType, TlsProtocolVersion},
 };
 
 /// TLS HelloRetryRequest random value.

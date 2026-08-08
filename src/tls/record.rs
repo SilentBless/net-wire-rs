@@ -1,5 +1,8 @@
 //! TLS record views and caller-buffer construction.
-use super::{TlsBuildError, TlsContentType, TlsParseError, TlsProtocolVersion};
+use super::{
+    error::{TlsBuildError, TlsParseError},
+    types::{TlsContentType, TlsProtocolVersion},
+};
 /// A single structurally bounded TLS record.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TlsRecord<'a> {

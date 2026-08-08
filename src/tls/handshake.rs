@@ -1,5 +1,9 @@
 //! TLS handshake framing views.
-use super::{ClientHello, ServerHello, TlsBuildError, TlsHandshakeType, TlsParseError};
+use super::{
+    error::{TlsBuildError, TlsParseError},
+    hello::{ClientHello, ServerHello},
+    types::TlsHandshakeType,
+};
 /// A single structurally bounded TLS handshake message.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TlsHandshake<'a> {

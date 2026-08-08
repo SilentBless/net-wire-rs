@@ -1,8 +1,10 @@
 //! Caller-buffer TLS extension and hello construction.
 
 use super::{
-    ClientHello, ServerHello, TlsBuildError, TlsCipherSuite, TlsCompressionMethod, TlsExtension,
-    TlsExtensionType, TlsExtensions, TlsProtocolVersion,
+    error::TlsBuildError,
+    extensions::extension::{TlsExtension, TlsExtensions},
+    hello::{ClientHello, ServerHello},
+    types::{TlsCipherSuite, TlsCompressionMethod, TlsExtensionType, TlsProtocolVersion},
 };
 
 /// Builds one TLS extension TLV in caller-owned storage.
