@@ -1,5 +1,6 @@
 //! Internal IPv6 extension-header traversal.
 
+use super::error::Ipv6ExtensionTraversalError;
 use super::next_header::Ipv6NextHeader;
 use crate::error::ParseError;
 
@@ -13,9 +14,9 @@ pub(super) fn traverse(
     next_header: Ipv6NextHeader,
     raw_payload_length: u16,
     payload: &[u8],
-) -> Result<ExtensionTraversal, ParseError> {
+) -> Result<ExtensionTraversal, Ipv6ExtensionTraversalError> {
     if raw_payload_length == 0 && !payload.is_empty() {
-        return Err(ParseError::UnresolvedPayloadLength);
+        return Err(Ipv6ExtensionTraversalError::UnresolvedPayloadLength);
     }
 
     let mut next_header = next_header.raw();
@@ -28,10 +29,10 @@ pub(super) fn traverse(
                 usize::from(header[1])
                     .checked_add(1)
                     .and_then(|length| length.checked_mul(8))
-                    .ok_or(ParseError::Truncated {
+                    .ok_or(Ipv6ExtensionTraversalError::Parse(ParseError::Truncated {
                         minimum: usize::MAX,
                         available: payload.len(),
-                    })?
+                    }))?
             }
             44 => {
                 let header = prefix(payload, offset, 8)?;
@@ -53,12 +54,12 @@ pub(super) fn traverse(
                 let length = usize::from(header[1])
                     .checked_add(2)
                     .and_then(|length| length.checked_mul(4))
-                    .ok_or(ParseError::Truncated {
+                    .ok_or(Ipv6ExtensionTraversalError::Parse(ParseError::Truncated {
                         minimum: usize::MAX,
                         available: payload.len(),
-                    })?;
+                    }))?;
                 if length < 12 {
-                    return Err(ParseError::InvalidExtensionHeaderLength {
+                    return Err(Ipv6ExtensionTraversalError::InvalidExtensionHeaderLength {
                         next_header,
                         minimum: 12,
                         actual: length,
@@ -89,22 +90,28 @@ pub(super) fn traverse(
 }
 
 #[inline]
-fn prefix(payload: &[u8], offset: usize, length: usize) -> Result<&[u8], ParseError> {
+fn prefix(
+    payload: &[u8],
+    offset: usize,
+    length: usize,
+) -> Result<&[u8], Ipv6ExtensionTraversalError> {
     let end = end(payload, offset, length)?;
     Ok(&payload[offset..end])
 }
 
 #[inline]
-fn end(payload: &[u8], offset: usize, length: usize) -> Result<usize, ParseError> {
-    let end = offset.checked_add(length).ok_or(ParseError::Truncated {
-        minimum: usize::MAX,
-        available: payload.len(),
-    })?;
+fn end(payload: &[u8], offset: usize, length: usize) -> Result<usize, Ipv6ExtensionTraversalError> {
+    let end = offset
+        .checked_add(length)
+        .ok_or(Ipv6ExtensionTraversalError::Parse(ParseError::Truncated {
+            minimum: usize::MAX,
+            available: payload.len(),
+        }))?;
     if payload.len() < end {
-        return Err(ParseError::Truncated {
+        return Err(Ipv6ExtensionTraversalError::Parse(ParseError::Truncated {
             minimum: end,
             available: payload.len(),
-        });
+        }));
     }
     Ok(end)
 }

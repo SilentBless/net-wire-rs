@@ -1,5 +1,7 @@
 use net_wire::ParseError;
-use net_wire::ipv6::{Ipv6NextHeader, Ipv6Packet, Ipv6PacketMut};
+use net_wire::ipv6::{
+    Ipv6DispatchError, Ipv6ExtensionTraversalError, Ipv6NextHeader, Ipv6Packet, Ipv6PacketMut,
+};
 
 fn packet(next_header: Ipv6NextHeader, payload: &[u8]) -> Vec<u8> {
     let mut bytes = vec![0; 40 + payload.len()];
@@ -50,26 +52,26 @@ fn direct_dispatch_valid_mismatch_and_malformed() {
         (
             Ipv6NextHeader::ICMPV6,
             &[0, 0, 0][..],
-            ParseError::Truncated {
+            Ipv6DispatchError::UpperLayer(ParseError::Truncated {
                 minimum: 4,
                 available: 3,
-            },
+            }),
         ),
         (
             Ipv6NextHeader::UDP,
             &[0; 7][..],
-            ParseError::Truncated {
+            Ipv6DispatchError::UpperLayer(ParseError::Truncated {
                 minimum: 8,
                 available: 7,
-            },
+            }),
         ),
         (
             Ipv6NextHeader::TCP,
             &[0; 19][..],
-            ParseError::Truncated {
+            Ipv6DispatchError::UpperLayer(ParseError::Truncated {
                 minimum: 20,
                 available: 19,
-            },
+            }),
         ),
     ] {
         let bytes = packet(next, payload);
@@ -148,27 +150,33 @@ fn extension_errors_and_terminal_headers_are_explicit() {
     let bytes = packet(Ipv6NextHeader::HOPOPT, &[17]);
     assert_eq!(
         Ipv6Packet::parse(&bytes).unwrap().udp(),
-        Err(ParseError::Truncated {
-            minimum: 2,
-            available: 1
-        })
+        Err(Ipv6DispatchError::Traversal(
+            Ipv6ExtensionTraversalError::Parse(ParseError::Truncated {
+                minimum: 2,
+                available: 1
+            })
+        ))
     );
     let bytes = packet(Ipv6NextHeader::HOPOPT, &[17, 1, 0, 0, 0, 0, 0, 0]);
     assert_eq!(
         Ipv6Packet::parse(&bytes).unwrap().udp(),
-        Err(ParseError::Truncated {
-            minimum: 16,
-            available: 8
-        })
+        Err(Ipv6DispatchError::Traversal(
+            Ipv6ExtensionTraversalError::Parse(ParseError::Truncated {
+                minimum: 16,
+                available: 8
+            })
+        ))
     );
     let bytes = packet(Ipv6NextHeader::AUTHENTICATION, &[17, 0, 0, 0, 0, 0, 0, 0]);
     assert_eq!(
         Ipv6Packet::parse(&bytes).unwrap().udp(),
-        Err(ParseError::InvalidExtensionHeaderLength {
-            next_header: 51,
-            minimum: 12,
-            actual: 8
-        })
+        Err(Ipv6DispatchError::Traversal(
+            Ipv6ExtensionTraversalError::InvalidExtensionHeaderLength {
+                next_header: 51,
+                minimum: 12,
+                actual: 8
+            }
+        ))
     );
 
     assert_terminal_none(Ipv6NextHeader::ESP, &[1, 2]);
@@ -181,7 +189,22 @@ fn extension_errors_and_terminal_headers_are_explicit() {
     unresolved[4..6].fill(0);
     unresolved.extend_from_slice(&[0; 8]);
     let ipv6 = Ipv6Packet::parse(&unresolved).unwrap();
-    assert_eq!(ipv6.icmpv6(), Err(ParseError::UnresolvedPayloadLength));
-    assert_eq!(ipv6.udp(), Err(ParseError::UnresolvedPayloadLength));
-    assert_eq!(ipv6.tcp(), Err(ParseError::UnresolvedPayloadLength));
+    assert_eq!(
+        ipv6.icmpv6(),
+        Err(Ipv6DispatchError::Traversal(
+            Ipv6ExtensionTraversalError::UnresolvedPayloadLength
+        ))
+    );
+    assert_eq!(
+        ipv6.udp(),
+        Err(Ipv6DispatchError::Traversal(
+            Ipv6ExtensionTraversalError::UnresolvedPayloadLength
+        ))
+    );
+    assert_eq!(
+        ipv6.tcp(),
+        Err(Ipv6DispatchError::Traversal(
+            Ipv6ExtensionTraversalError::UnresolvedPayloadLength
+        ))
+    );
 }

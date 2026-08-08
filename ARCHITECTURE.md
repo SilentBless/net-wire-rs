@@ -178,7 +178,7 @@ A shared private function or module needs at least two current consumers and one
 3. a private type that carries a real invariant;
 4. a private declarative macro for repeated declarations or wire forms.
 
-Do not create root `common`, `utils`, or `helpers` modules. Name the shared responsibility, such as checksum, pseudoheader handling, or header compression.
+Do not create root `common`, `utils`, or `helpers` modules. Name the shared responsibility, such as internet checksum handling or RFC 7541 Huffman coding.
 
 A helper must not erase protocol-specific diagnostics, weaken checked arithmetic, force unrelated feature dependencies, or introduce generic monomorphization larger than the duplicated direct code.
 
