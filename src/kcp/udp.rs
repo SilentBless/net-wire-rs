@@ -2,7 +2,8 @@
 
 use crate::udp::UdpDatagram;
 
-use super::{KcpSegments, KcpSegmentsParseError};
+use super::error::KcpSegmentsParseError;
+use super::segments::KcpSegments;
 
 impl<'a> UdpDatagram<'a> {
     /// Validates the complete UDP payload as a nonempty KCP segment sequence.

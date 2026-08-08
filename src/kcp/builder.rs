@@ -1,8 +1,9 @@
 //! KCP caller-buffer segment construction.
 
-use super::{
-    KCP_SEGMENT_HEADER_LEN, KcpCommand, KcpConversationId, KcpFragment, KcpSegmentBuildError,
-    KcpSegmentMut, KcpSequenceNumber, KcpTimestamp, KcpUnacknowledged,
+use super::error::KcpSegmentBuildError;
+use super::segment::{KCP_SEGMENT_HEADER_LEN, KcpSegmentMut};
+use super::types::{
+    KcpCommand, KcpConversationId, KcpFragment, KcpSequenceNumber, KcpTimestamp, KcpUnacknowledged,
 };
 
 /// Builds one complete KCP segment in caller-owned storage.

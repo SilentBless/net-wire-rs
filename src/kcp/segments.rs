@@ -2,7 +2,8 @@
 
 use core::iter::FusedIterator;
 
-use super::{KcpSegment, KcpSegmentsParseError};
+use super::error::KcpSegmentsParseError;
+use super::segment::KcpSegment;
 
 /// A nonempty, completely validated concatenated KCP segment sequence.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

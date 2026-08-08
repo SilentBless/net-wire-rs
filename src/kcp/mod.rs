@@ -7,7 +7,6 @@
 mod builder;
 mod error;
 mod segment;
-mod segment_mut;
 mod segments;
 mod types;
 #[cfg(feature = "udp")]
@@ -15,8 +14,7 @@ mod udp;
 
 pub use builder::KcpSegmentBuilder;
 pub use error::{KcpSegmentBuildError, KcpSegmentParseError, KcpSegmentsParseError};
-pub use segment::{KCP_SEGMENT_HEADER_LEN, KcpSegment};
-pub use segment_mut::KcpSegmentMut;
+pub use segment::{KCP_SEGMENT_HEADER_LEN, KcpSegment, KcpSegmentMut};
 pub use segments::{KcpSegmentIter, KcpSegments};
 pub use types::{
     KcpCommand, KcpConversationId, KcpFragment, KcpKnownCommand, KcpSequenceNumber, KcpTimestamp,
