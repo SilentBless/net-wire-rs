@@ -1,10 +1,8 @@
-use crate::ParseError;
-#[cfg(feature = "ethernet")]
-use crate::{EtherType, EthernetFrame, EthernetFrameMut, MacAddress};
+use crate::error::ParseError;
 
-use super::{ArpHardwareType, ArpOperation, ArpProtocolType};
+use super::types::{ArpHardwareType, ArpOperation, ArpProtocolType};
 
-const PREFIX_LENGTH: usize = 8;
+pub(super) const PREFIX_LENGTH: usize = 8;
 
 /// A structurally validated immutable ARP packet view.
 ///
@@ -261,58 +259,4 @@ fn validate(bytes: &[u8]) -> Result<(usize, usize, usize), ParseError> {
         });
     }
     Ok((hardware_length, protocol_length, length))
-}
-
-#[cfg(feature = "ethernet")]
-impl<'a> EthernetFrame<'a> {
-    /// Parses an ARP payload only when this frame's EtherType is ARP.
-    #[inline]
-    pub fn arp(&self) -> Result<Option<ArpPacket<'a>>, ParseError> {
-        if self.ether_type() != EtherType::ARP {
-            return Ok(None);
-        }
-        ArpPacket::parse(self.payload()).map(Some)
-    }
-}
-#[cfg(feature = "ethernet")]
-impl<'a> EthernetFrameMut<'a> {
-    /// Parses a mutable ARP payload only when this frame's EtherType is ARP.
-    #[inline]
-    pub fn arp_mut(&mut self) -> Result<Option<ArpPacketMut<'_>>, ParseError> {
-        if self.ether_type() != EtherType::ARP {
-            return Ok(None);
-        }
-        ArpPacketMut::parse(self.payload_mut()).map(Some)
-    }
-}
-#[cfg(feature = "ethernet")]
-impl<'a> ArpPacket<'a> {
-    /// Returns the sender MAC address only for Ethernet hardware with a six-octet address.
-    #[inline]
-    pub fn sender_mac_address(&self) -> Option<MacAddress> {
-        if self.hardware_type() != ArpHardwareType::ETHERNET
-            || self.sender_hardware_address().len() != 6
-        {
-            return None;
-        }
-        Some(MacAddress::new(
-            self.sender_hardware_address()
-                .try_into()
-                .expect("checked address length"),
-        ))
-    }
-    /// Returns the target MAC address only for Ethernet hardware with a six-octet address.
-    #[inline]
-    pub fn target_mac_address(&self) -> Option<MacAddress> {
-        if self.hardware_type() != ArpHardwareType::ETHERNET
-            || self.target_hardware_address().len() != 6
-        {
-            return None;
-        }
-        Some(MacAddress::new(
-            self.target_hardware_address()
-                .try_into()
-                .expect("checked address length"),
-        ))
-    }
 }

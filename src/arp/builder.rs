@@ -1,7 +1,7 @@
 use core::fmt;
 
-use super::packet::ArpPacketMut;
-use super::{ArpHardwareType, ArpOperation, ArpProtocolType};
+use super::packet::{ArpPacketMut, PREFIX_LENGTH};
+use super::types::{ArpHardwareType, ArpOperation, ArpProtocolType};
 
 /// Failure while validating an ARP builder request.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -141,7 +141,7 @@ impl<'buffer, 'input> ArpPacketBuilder<'buffer, 'input> {
         if sender_hardware.len() > u8::MAX as usize || sender_protocol.len() > u8::MAX as usize {
             return Err(ArpPacketBuildError::AddressLengthTooLarge);
         }
-        let length = 8 + 2 * sender_hardware.len() + 2 * sender_protocol.len();
+        let length = PREFIX_LENGTH + 2 * sender_hardware.len() + 2 * sender_protocol.len();
         if self.buffer.len() < length {
             return Err(ArpPacketBuildError::BufferTooShort {
                 required: length,
@@ -154,7 +154,7 @@ impl<'buffer, 'input> ArpPacketBuilder<'buffer, 'input> {
         bytes[4] = sender_hardware.len() as u8;
         bytes[5] = sender_protocol.len() as u8;
         bytes[6..8].copy_from_slice(&operation.raw().to_be_bytes());
-        let mut offset = 8;
+        let mut offset = PREFIX_LENGTH;
         bytes[offset..offset + sender_hardware.len()].copy_from_slice(sender_hardware);
         offset += sender_hardware.len();
         bytes[offset..offset + sender_protocol.len()].copy_from_slice(sender_protocol);
