@@ -2,12 +2,12 @@
 
 use super::address::Ipv4Address;
 #[cfg(any(feature = "tcp", feature = "udp"))]
-use crate::checksum::{self, add_ipv4_pseudoheader};
+use crate::internet_checksum::{self, add_ipv4_pseudoheader};
 #[cfg(feature = "udp")]
 use crate::udp::{UdpDatagram, UdpDatagramMut};
 #[cfg(feature = "tcp")]
 use crate::{
-    pseudoheader::PseudoHeaderChecksumError,
+    internet_checksum::PseudoHeaderChecksumError,
     tcp::{TcpSegment, TcpSegmentMut},
 };
 
@@ -46,7 +46,7 @@ impl TcpSegmentMut<'_> {
         destination: Ipv4Address,
     ) -> Result<(), PseudoHeaderChecksumError> {
         let sum = tcp_ipv4_sum_with_zero_checksum(self.as_bytes(), source, destination)?;
-        let value = checksum::checksum(sum);
+        let value = internet_checksum::checksum(sum);
         self.as_bytes_mut()[16..18].copy_from_slice(&value.to_be_bytes());
         Ok(())
     }
@@ -59,7 +59,7 @@ fn tcp_ipv4_sum(
     destination: Ipv4Address,
 ) -> Result<u32, PseudoHeaderChecksumError> {
     let length = tcp_ipv4_length(bytes)?;
-    Ok(checksum::add_bytes(
+    Ok(internet_checksum::add_bytes(
         add_ipv4_pseudoheader(
             0,
             source.octets(),
@@ -85,9 +85,9 @@ fn tcp_ipv4_sum_with_zero_checksum(
         TCP_PROTOCOL,
         length,
     );
-    let sum = checksum::add_bytes(sum, &bytes[..16]);
-    let sum = checksum::add_bytes(sum, &[0, 0]);
-    Ok(checksum::add_bytes(sum, &bytes[18..]))
+    let sum = internet_checksum::add_bytes(sum, &bytes[..16]);
+    let sum = internet_checksum::add_bytes(sum, &[0, 0]);
+    Ok(internet_checksum::add_bytes(sum, &bytes[18..]))
 }
 
 #[cfg(feature = "tcp")]
@@ -151,7 +151,7 @@ impl UdpDatagramMut<'_> {
     pub fn update_checksum_ipv4(&mut self, source: Ipv4Address, destination: Ipv4Address) {
         let bytes = self.as_bytes_mut();
         bytes[6..8].fill(0);
-        let value = checksum::checksum(udp_checksum_sum(bytes, source, destination));
+        let value = internet_checksum::checksum(udp_checksum_sum(bytes, source, destination));
         bytes[6..8].copy_from_slice(&(if value == 0 { 0xffff } else { value }).to_be_bytes());
     }
 }
@@ -159,7 +159,7 @@ impl UdpDatagramMut<'_> {
 #[cfg(feature = "udp")]
 fn udp_checksum_sum(bytes: &[u8], source: Ipv4Address, destination: Ipv4Address) -> u32 {
     let length = u16::try_from(bytes.len()).expect("UDP length is validated");
-    checksum::add_bytes(
+    internet_checksum::add_bytes(
         add_ipv4_pseudoheader(
             0,
             source.octets(),

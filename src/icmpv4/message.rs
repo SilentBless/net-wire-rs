@@ -1,7 +1,7 @@
 //! ICMPv4 checked borrowed message views.
 
 use super::types::Icmpv4Type;
-use crate::{checksum, error::ParseError};
+use crate::{error::ParseError, internet_checksum};
 
 pub(super) const HEADER_LENGTH: usize = 4;
 
@@ -43,7 +43,7 @@ impl<'a> Icmpv4Message<'a> {
     }
     /// Tests the complete message checksum.
     pub fn checksum_is_valid(&self) -> bool {
-        checksum::sum(self.bytes) == 0xffff
+        internet_checksum::sum(self.bytes) == 0xffff
     }
 }
 
@@ -109,11 +109,11 @@ impl<'a> Icmpv4MessageMut<'a> {
     /// Recomputes the complete ICMPv4 checksum.
     pub fn update_checksum(&mut self) {
         self.bytes[2..4].fill(0);
-        let value = checksum::checksum(checksum::add_bytes(0, self.bytes));
+        let value = internet_checksum::checksum(internet_checksum::add_bytes(0, self.bytes));
         self.set_checksum(value);
     }
     /// Tests the complete ICMPv4 checksum.
     pub fn checksum_is_valid(&self) -> bool {
-        checksum::sum(self.bytes) == 0xffff
+        internet_checksum::sum(self.bytes) == 0xffff
     }
 }

@@ -2,7 +2,7 @@
 
 use super::address::Ipv4Address;
 use super::protocol::Ipv4Protocol;
-use crate::{checksum, error::ParseError};
+use crate::{error::ParseError, internet_checksum};
 
 pub(super) const HEADER_LENGTH: usize = 20;
 
@@ -97,7 +97,7 @@ impl<'a> Ipv4Packet<'a> {
     /// Checks the one's-complement checksum across the complete IHL, including options.
     #[inline]
     pub fn checksum_is_valid(&self) -> bool {
-        checksum::sum(&self.bytes[..self.header_length]) == 0xffff
+        internet_checksum::sum(&self.bytes[..self.header_length]) == 0xffff
     }
 }
 /// A structurally validated mutable RFC 791 packet view.
@@ -253,13 +253,13 @@ impl<'a> Ipv4PacketMut<'a> {
         write_u16(
             self.bytes,
             10,
-            !checksum::sum(&self.bytes[..self.header_length]),
+            !internet_checksum::sum(&self.bytes[..self.header_length]),
         )
     }
     /// Checks the current checksum across the full IHL.
     #[inline]
     pub fn checksum_is_valid(&self) -> bool {
-        checksum::sum(&self.bytes[..self.header_length]) == 0xffff
+        internet_checksum::sum(&self.bytes[..self.header_length]) == 0xffff
     }
 }
 #[inline]

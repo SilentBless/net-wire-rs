@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::header_huffman;
+use crate::rfc7541_huffman;
 
 /// Encodes RFC 7541 Appendix B Huffman data into caller-owned storage.
 pub struct HpackHuffmanEncoder<'input, 'output> {
@@ -21,7 +21,7 @@ impl<'input, 'output> HpackHuffmanEncoder<'input, 'output> {
 
     /// Returns the RFC-padded encoded length required for `decoded`.
     pub fn required_encoded_len(decoded: &[u8]) -> Result<usize, HpackHuffmanEncodeError> {
-        header_huffman::encoded_len(decoded).map_err(map_encode_error)
+        rfc7541_huffman::encoded_len(decoded).map_err(map_encode_error)
     }
 
     /// Validates capacity before atomically writing the RFC-padded encoded bytes.
@@ -40,7 +40,7 @@ impl<'input, 'output> HpackHuffmanEncoder<'input, 'output> {
 
     /// Writes a preflighted RFC-padded encoding into an exact-size destination.
     pub(super) fn encode_prevalidated(decoded: &[u8], destination: &mut [u8]) {
-        header_huffman::encode_prevalidated(decoded, destination);
+        rfc7541_huffman::encode_prevalidated(decoded, destination);
     }
 }
 
@@ -97,7 +97,7 @@ impl<'input, 'output> HpackHuffmanDecoder<'input, 'output> {
 
     /// Returns the decoded byte length after validating the complete input.
     pub fn required_decoded_len(encoded: &[u8]) -> Result<usize, HpackHuffmanDecodeError> {
-        header_huffman::decoded_len(encoded).map_err(map_decode_error)
+        rfc7541_huffman::decoded_len(encoded).map_err(map_decode_error)
     }
 
     /// Validates the complete input before atomically writing its decoded bytes.
@@ -109,7 +109,7 @@ impl<'input, 'output> HpackHuffmanDecoder<'input, 'output> {
                 available: self.destination.len(),
             });
         }
-        header_huffman::decode_prevalidated(self.encoded, &mut self.destination[..required]);
+        rfc7541_huffman::decode_prevalidated(self.encoded, &mut self.destination[..required]);
         Ok(&self.destination[..required])
     }
 }
@@ -156,25 +156,25 @@ impl fmt::Display for HpackHuffmanDecodeError {
     }
 }
 
-fn map_encode_error(error: header_huffman::EncodeError) -> HpackHuffmanEncodeError {
+fn map_encode_error(error: rfc7541_huffman::EncodeError) -> HpackHuffmanEncodeError {
     match error {
-        header_huffman::EncodeError::BitLengthOverflow => {
+        rfc7541_huffman::EncodeError::BitLengthOverflow => {
             HpackHuffmanEncodeError::EncodedBitLengthOverflow
         }
-        header_huffman::EncodeError::ByteLengthOverflow => {
+        rfc7541_huffman::EncodeError::ByteLengthOverflow => {
             HpackHuffmanEncodeError::EncodedByteLengthOverflow
         }
     }
 }
 
-fn map_decode_error(error: header_huffman::DecodeError) -> HpackHuffmanDecodeError {
+fn map_decode_error(error: rfc7541_huffman::DecodeError) -> HpackHuffmanDecodeError {
     match error {
-        header_huffman::DecodeError::EosSymbol => HpackHuffmanDecodeError::EosSymbol,
-        header_huffman::DecodeError::InvalidHuffmanCode => {
+        rfc7541_huffman::DecodeError::EosSymbol => HpackHuffmanDecodeError::EosSymbol,
+        rfc7541_huffman::DecodeError::InvalidHuffmanCode => {
             HpackHuffmanDecodeError::InvalidHuffmanCode
         }
-        header_huffman::DecodeError::InvalidPadding => HpackHuffmanDecodeError::InvalidPadding,
-        header_huffman::DecodeError::DecodedLengthOverflow => {
+        rfc7541_huffman::DecodeError::InvalidPadding => HpackHuffmanDecodeError::InvalidPadding,
+        rfc7541_huffman::DecodeError::DecodedLengthOverflow => {
             HpackHuffmanDecodeError::DecodedLengthOverflow
         }
     }

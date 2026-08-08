@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::header_huffman;
+use crate::rfc7541_huffman;
 
 /// Encodes QPACK Huffman payload bytes into caller-owned storage.
 pub struct QpackHuffmanEncoder<'input, 'output> {
@@ -21,7 +21,7 @@ impl<'input, 'output> QpackHuffmanEncoder<'input, 'output> {
 
     /// Returns the exact RFC-padded encoded byte length.
     pub fn required_encoded_len(decoded: &[u8]) -> Result<usize, QpackHuffmanEncodeError> {
-        header_huffman::encoded_len(decoded).map_err(map_encode)
+        rfc7541_huffman::encoded_len(decoded).map_err(map_encode)
     }
 
     /// Validates all fallible conditions before atomically writing the encoded bytes.
@@ -34,7 +34,7 @@ impl<'input, 'output> QpackHuffmanEncoder<'input, 'output> {
             });
         }
         let output = &mut self.destination[..required];
-        header_huffman::encode_prevalidated(self.decoded, output);
+        rfc7541_huffman::encode_prevalidated(self.decoded, output);
         Ok(output)
     }
 }
@@ -92,7 +92,7 @@ impl<'input, 'output> QpackHuffmanDecoder<'input, 'output> {
 
     /// Returns the decoded byte length after validating the complete input.
     pub fn required_decoded_len(encoded: &[u8]) -> Result<usize, QpackHuffmanDecodeError> {
-        header_huffman::decoded_len(encoded).map_err(map_decode)
+        rfc7541_huffman::decoded_len(encoded).map_err(map_decode)
     }
 
     /// Validates all fallible conditions before atomically writing decoded bytes.
@@ -104,7 +104,7 @@ impl<'input, 'output> QpackHuffmanDecoder<'input, 'output> {
                 available: self.destination.len(),
             });
         }
-        header_huffman::decode_prevalidated(self.encoded, &mut self.destination[..required]);
+        rfc7541_huffman::decode_prevalidated(self.encoded, &mut self.destination[..required]);
         Ok(&self.destination[..required])
     }
 }
@@ -131,7 +131,7 @@ pub enum QpackHuffmanDecodeError {
 
 /// Decodes a payload whose validity and exact decoded output length were prevalidated.
 pub(crate) fn decode_prevalidated(encoded: &[u8], destination: &mut [u8]) {
-    header_huffman::decode_prevalidated(encoded, destination);
+    rfc7541_huffman::decode_prevalidated(encoded, destination);
 }
 
 impl fmt::Display for QpackHuffmanDecodeError {
@@ -156,25 +156,25 @@ impl fmt::Display for QpackHuffmanDecodeError {
     }
 }
 
-fn map_encode(error: header_huffman::EncodeError) -> QpackHuffmanEncodeError {
+fn map_encode(error: rfc7541_huffman::EncodeError) -> QpackHuffmanEncodeError {
     match error {
-        header_huffman::EncodeError::BitLengthOverflow => {
+        rfc7541_huffman::EncodeError::BitLengthOverflow => {
             QpackHuffmanEncodeError::EncodedBitLengthOverflow
         }
-        header_huffman::EncodeError::ByteLengthOverflow => {
+        rfc7541_huffman::EncodeError::ByteLengthOverflow => {
             QpackHuffmanEncodeError::EncodedByteLengthOverflow
         }
     }
 }
 
-fn map_decode(error: header_huffman::DecodeError) -> QpackHuffmanDecodeError {
+fn map_decode(error: rfc7541_huffman::DecodeError) -> QpackHuffmanDecodeError {
     match error {
-        header_huffman::DecodeError::EosSymbol => QpackHuffmanDecodeError::EosSymbol,
-        header_huffman::DecodeError::InvalidHuffmanCode => {
+        rfc7541_huffman::DecodeError::EosSymbol => QpackHuffmanDecodeError::EosSymbol,
+        rfc7541_huffman::DecodeError::InvalidHuffmanCode => {
             QpackHuffmanDecodeError::InvalidHuffmanCode
         }
-        header_huffman::DecodeError::InvalidPadding => QpackHuffmanDecodeError::InvalidPadding,
-        header_huffman::DecodeError::DecodedLengthOverflow => {
+        rfc7541_huffman::DecodeError::InvalidPadding => QpackHuffmanDecodeError::InvalidPadding,
+        rfc7541_huffman::DecodeError::DecodedLengthOverflow => {
             QpackHuffmanDecodeError::DecodedLengthOverflow
         }
     }

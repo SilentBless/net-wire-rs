@@ -1,12 +1,12 @@
 //! IPv6 pseudoheader checksum integration for transport protocols.
 
 use super::address::Ipv6Address;
-#[cfg(any(feature = "icmpv6", feature = "tcp", feature = "udp"))]
-use crate::checksum::{self, add_ipv6_pseudoheader};
 #[cfg(feature = "icmpv6")]
 use crate::icmpv6::{Icmpv6Message, Icmpv6MessageMut};
 #[cfg(any(feature = "icmpv6", feature = "tcp"))]
-use crate::pseudoheader::PseudoHeaderChecksumError;
+use crate::internet_checksum::PseudoHeaderChecksumError;
+#[cfg(any(feature = "icmpv6", feature = "tcp", feature = "udp"))]
+use crate::internet_checksum::{self, add_ipv6_pseudoheader};
 #[cfg(feature = "tcp")]
 use crate::tcp::{TcpSegment, TcpSegmentMut};
 #[cfg(feature = "udp")]
@@ -66,7 +66,7 @@ impl TcpSegmentMut<'_> {
         let bytes = self.as_bytes();
         let sum =
             checksum_sum_with_zero_checksum(bytes, source, destination, TCP_NEXT_HEADER, length);
-        let value = checksum::checksum(sum);
+        let value = internet_checksum::checksum(sum);
         self.as_bytes_mut()[16..18].copy_from_slice(&value.to_be_bytes());
         Ok(())
     }
@@ -116,7 +116,7 @@ impl<'a> Icmpv6MessageMut<'a> {
         let length = pseudoheader_length(self.as_bytes())?;
         let bytes = self.as_bytes_mut();
         bytes[2..4].fill(0);
-        let value = checksum::checksum(checksum_sum(
+        let value = internet_checksum::checksum(checksum_sum(
             bytes,
             source,
             destination,
@@ -158,7 +158,7 @@ impl<'a> UdpDatagramMut<'a> {
     pub fn update_checksum_ipv6(&mut self, source: Ipv6Address, destination: Ipv6Address) {
         let bytes = self.as_bytes_mut();
         bytes[6..8].fill(0);
-        let value = checksum::checksum(checksum_sum(
+        let value = internet_checksum::checksum(checksum_sum(
             bytes,
             source,
             destination,
@@ -184,7 +184,7 @@ fn checksum_sum(
     next_header: u8,
     length: u32,
 ) -> u32 {
-    checksum::add_bytes(
+    internet_checksum::add_bytes(
         add_ipv6_pseudoheader(
             0,
             source.octets(),
@@ -211,7 +211,7 @@ fn checksum_sum_with_zero_checksum(
         next_header,
         length,
     );
-    let sum = checksum::add_bytes(sum, &bytes[..16]);
-    let sum = checksum::add_bytes(sum, &[0, 0]);
-    checksum::add_bytes(sum, &bytes[18..])
+    let sum = internet_checksum::add_bytes(sum, &bytes[..16]);
+    let sum = internet_checksum::add_bytes(sum, &[0, 0]);
+    internet_checksum::add_bytes(sum, &bytes[18..])
 }

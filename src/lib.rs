@@ -7,6 +7,7 @@
 //! selected explicitly; intrinsic lower-protocol requirements are enabled transitively, while
 //! optional adapters remain orthogonal.
 
+mod error;
 #[cfg(any(
     feature = "ipv4",
     feature = "icmpv4",
@@ -16,15 +17,9 @@
         any(feature = "icmpv6", feature = "udp", feature = "tcp")
     )
 ))]
-mod checksum;
-mod error;
+mod internet_checksum;
 #[cfg(any(feature = "http2", feature = "qpack"))]
-mod header_huffman;
-#[cfg(any(
-    all(feature = "ipv4", feature = "tcp"),
-    all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
-))]
-mod pseudoheader;
+mod rfc7541_huffman;
 
 #[cfg(feature = "arp")]
 /// ARP packet views, semantic fields, and caller-buffer construction.
@@ -77,4 +72,4 @@ pub use error::ParseError;
     all(feature = "ipv4", feature = "tcp"),
     all(feature = "ipv6", any(feature = "icmpv6", feature = "tcp"))
 ))]
-pub use pseudoheader::PseudoHeaderChecksumError;
+pub use internet_checksum::PseudoHeaderChecksumError;
