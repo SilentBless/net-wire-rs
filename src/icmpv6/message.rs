@@ -1,9 +1,9 @@
 //! ICMPv6 checked borrowed message views.
 
-use super::Icmpv6Type;
-use crate::ParseError;
+use super::types::Icmpv6Type;
+use crate::error::ParseError;
 
-const HEADER_LENGTH: usize = 4;
+pub(super) const HEADER_LENGTH: usize = 4;
 
 /// A structurally validated ICMPv6 message.
 ///

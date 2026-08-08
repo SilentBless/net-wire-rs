@@ -2,9 +2,8 @@
 
 use core::fmt;
 
-use super::{Icmpv6MessageMut, Icmpv6Type};
-
-const HEADER_LENGTH: usize = 4;
+use super::message::{HEADER_LENGTH, Icmpv6MessageMut};
+use super::types::Icmpv6Type;
 
 /// Failure to construct an ICMPv6 message in caller-provided storage.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
