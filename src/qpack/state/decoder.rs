@@ -6,10 +6,12 @@
 
 use core::fmt;
 
-use super::{
-    QPACK_INTEGER_MAX, QpackDecodedFieldSection, QpackDecoderInstructionBuildError,
-    QpackInsertCountIncrement, QpackInsertCountIncrementBuilder, QpackSectionAcknowledgment,
-    QpackSectionAcknowledgmentBuilder, QpackStreamCancellation, QpackStreamCancellationBuilder,
+use crate::qpack::field::section::decode::QpackDecodedFieldSection;
+use crate::qpack::integer::QPACK_INTEGER_MAX;
+use crate::qpack::stream::decoder::{
+    QpackDecoderInstructionBuildError, QpackInsertCountIncrement, QpackInsertCountIncrementBuilder,
+    QpackSectionAcknowledgment, QpackSectionAcknowledgmentBuilder, QpackStreamCancellation,
+    QpackStreamCancellationBuilder,
 };
 
 /// Caller-owned QPACK decoder feedback accounting.

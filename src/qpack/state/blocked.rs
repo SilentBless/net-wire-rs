@@ -3,7 +3,7 @@
 use core::fmt;
 use core::iter::FusedIterator;
 
-use super::QpackFieldSectionBlocked;
+use crate::qpack::field::section::decode::QpackFieldSectionBlocked;
 
 /// A caller-owned record of one stream with unresolved QPACK field sections.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

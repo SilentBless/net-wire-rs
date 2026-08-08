@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use super::QpackFieldSectionPrefix;
+use super::prefix::QpackFieldSectionPrefix;
 
 /// A resolved QPACK field-section Required Insert Count and Base.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -2,9 +2,9 @@
 
 use core::fmt;
 
-use super::{
+use super::integer::{
     QPACK_INTEGER_MAX, QpackInteger, QpackIntegerBuildError, QpackIntegerParseError,
-    integer::{canonical_encoded_len, integer_from_prevalidated, write_canonical_prevalidated},
+    canonical_encoded_len, integer_from_prevalidated, write_canonical_prevalidated,
 };
 
 /// A validated borrowed QPACK string literal whose payload remains opaque.

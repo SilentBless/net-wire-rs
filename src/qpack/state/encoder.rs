@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use super::{
+use crate::qpack::stream::decoder::{
     QpackDecoderInstruction, QpackDecoderInstructions, QpackDecoderInstructionsParseError,
 };
 
@@ -237,11 +237,10 @@ impl core::error::Error for QpackDecoderInstructionsApplyError {}
 
 /// Caller-owned encoder accounting for outstanding field sections with dynamic references.
 ///
-/// `maximum_blocked_streams` is the peer's SETTINGS_QPACK_BLOCKED_STREAMS value. Register a
-/// section after successfully building its bytes but before publishing them. A future combined
-/// field-section encoder must preflight this state before writing output so output and state stay
-/// atomic. Packed sections and reference occurrences are retained in registration order for later
-/// decoder-instruction application.
+/// `maximum_blocked_streams` is the peer's SETTINGS_QPACK_BLOCKED_STREAMS value. Field-section
+/// encoding reserves this state before writing output and commits the reservation only after
+/// emission succeeds, keeping output and accounting atomic. Packed sections and reference
+/// occurrences are retained in registration order for later decoder-instruction application.
 pub struct QpackEncoderState<'sections, 'references> {
     sections: &'sections mut [QpackEncoderOutstandingSection],
     references: &'references mut [u64],
@@ -255,7 +254,7 @@ pub struct QpackEncoderState<'sections, 'references> {
 ///
 /// A combined field-section encoder can retain this reservation while emitting prevalidated
 /// output, then atomically commit the corresponding accounting.
-pub(super) struct QpackEncoderStateRegistration<'state, 'sections, 'references, 'input> {
+pub(in crate::qpack) struct QpackEncoderStateRegistration<'state, 'sections, 'references, 'input> {
     state: &'state mut QpackEncoderState<'sections, 'references>,
     stream_id: u64,
     required_insert_count: u64,
@@ -267,7 +266,7 @@ impl<'state, 'sections, 'references, 'input>
     QpackEncoderStateRegistration<'state, 'sections, 'references, 'input>
 {
     /// Commits this validated registration to encoder accounting.
-    pub(super) fn commit(self) {
+    pub(in crate::qpack) fn commit(self) {
         if self.absolute_references.is_empty() {
             return;
         }
@@ -383,7 +382,7 @@ impl<'sections, 'references> QpackEncoderState<'sections, 'references> {
     }
 
     /// Validates a registration while leaving encoder accounting unmodified until commit.
-    pub(super) fn reserve_registration<'input>(
+    pub(in crate::qpack) fn reserve_registration<'input>(
         &mut self,
         stream_id: u64,
         required_insert_count: u64,

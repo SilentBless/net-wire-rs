@@ -3,9 +3,12 @@
 use core::fmt;
 
 use super::{
-    QPACK_STATIC_TABLE_LEN, QpackDynamicTable, QpackDynamicTableError, QpackEncoderInstruction,
-    QpackEncoderInstructions, QpackEncoderInstructionsParseError, QpackHuffmanDecodeError,
-    QpackHuffmanDecoder, QpackStaticTable, QpackStringLiteral,
+    QpackEncoderInstruction, QpackEncoderInstructions, QpackEncoderInstructionsParseError,
+};
+use crate::qpack::huffman::{QpackHuffmanDecodeError, QpackHuffmanDecoder};
+use crate::qpack::string::QpackStringLiteral;
+use crate::qpack::table::{
+    QPACK_STATIC_TABLE_LEN, QpackDynamicTable, QpackDynamicTableError, QpackStaticTable,
 };
 
 /// Applies one parsed QPACK encoder-stream instruction to a dynamic table.

@@ -2,16 +2,17 @@
 
 use core::fmt;
 
-use super::super::{
-    QPACK_INTEGER_MAX, QpackIntegerBuildError, QpackStringLiteralBuildError,
-    integer::{canonical_encoded_len, integer_from_prevalidated, write_canonical_prevalidated},
-    string::{
-        QpackStringLiteralPlan, string_from_prevalidated, string_plan, write_string_prevalidated,
-    },
-};
 use super::{
     QpackIndexedFieldLine, QpackIndexedPostBaseFieldLine, QpackLiteralNameFieldLine,
     QpackLiteralNameReferenceFieldLine, QpackLiteralPostBaseNameReferenceFieldLine,
+};
+use crate::qpack::integer::{
+    QPACK_INTEGER_MAX, QpackIntegerBuildError, canonical_encoded_len, integer_from_prevalidated,
+    write_canonical_prevalidated,
+};
+use crate::qpack::string::{
+    QpackStringLiteralBuildError, QpackStringLiteralPlan, string_from_prevalidated, string_plan,
+    write_string_prevalidated,
 };
 
 /// Failure to build a QPACK field line.

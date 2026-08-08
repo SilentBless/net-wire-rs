@@ -2,13 +2,13 @@
 
 use core::fmt;
 
-use super::{
-    QPACK_STATIC_TABLE_LEN, QpackDynamicTable, QpackDynamicTableError, QpackEncoderState,
-    QpackEncoderStateError, QpackFieldLineBuildError, QpackFieldSectionContext,
-    QpackFieldSectionContextError, QpackFieldSectionPrefixBuildError,
-    field_line::{QpackFieldLinePlan, QpackFieldLinePlanInput, plan_field_line},
-    field_section_prefix::plan_field_section_prefix,
+use super::context::{QpackFieldSectionContext, QpackFieldSectionContextError};
+use super::prefix::{QpackFieldSectionPrefixBuildError, plan_field_section_prefix};
+use crate::qpack::field::line::{
+    QpackFieldLineBuildError, QpackFieldLinePlan, QpackFieldLinePlanInput, plan_field_line,
 };
+use crate::qpack::state::encoder::{QpackEncoderState, QpackEncoderStateError};
+use crate::qpack::table::{QPACK_STATIC_TABLE_LEN, QpackDynamicTable, QpackDynamicTableError};
 
 /// An allocation-free QPACK field-section encoder configuration.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

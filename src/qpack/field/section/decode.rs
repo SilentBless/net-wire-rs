@@ -2,12 +2,14 @@
 
 use core::{fmt, iter::FusedIterator};
 
-use super::{
-    QPACK_STATIC_TABLE_LEN, QpackDynamicTable, QpackDynamicTableError, QpackFieldLine,
-    QpackFieldLines, QpackFieldLinesParseError, QpackFieldSectionContext,
-    QpackFieldSectionContextError, QpackFieldSectionPrefix, QpackFieldSectionPrefixParseError,
-    QpackHeaderFieldRef, QpackHuffmanDecodeError, QpackHuffmanDecoder, QpackStaticTable,
-    QpackStringLiteral,
+use super::context::{QpackFieldSectionContext, QpackFieldSectionContextError};
+use super::prefix::{QpackFieldSectionPrefix, QpackFieldSectionPrefixParseError};
+use crate::qpack::field::line::{QpackFieldLine, QpackFieldLines, QpackFieldLinesParseError};
+use crate::qpack::huffman::{QpackHuffmanDecodeError, QpackHuffmanDecoder, decode_prevalidated};
+use crate::qpack::string::QpackStringLiteral;
+use crate::qpack::table::{
+    QPACK_STATIC_TABLE_LEN, QpackDynamicTable, QpackDynamicTableError, QpackHeaderFieldRef,
+    QpackStaticTable,
 };
 
 /// Metadata for one packed decoded field in [`QpackFieldSectionOutput`].
@@ -658,10 +660,7 @@ fn write_prevalidated_literal(
     destination: &mut [u8],
 ) {
     if literal.is_huffman() {
-        super::huffman::decode_prevalidated(
-            literal.encoded_payload(),
-            &mut destination[..decoded_len],
-        );
+        decode_prevalidated(literal.encoded_payload(), &mut destination[..decoded_len]);
     } else {
         destination[..decoded_len].copy_from_slice(literal.encoded_payload());
     }

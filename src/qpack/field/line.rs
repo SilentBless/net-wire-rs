@@ -4,9 +4,8 @@ mod builder;
 
 use core::fmt;
 
-use super::{
-    QpackInteger, QpackIntegerParseError, QpackStringLiteral, QpackStringLiteralParseError,
-};
+use crate::qpack::integer::{QpackInteger, QpackIntegerParseError};
+use crate::qpack::string::{QpackStringLiteral, QpackStringLiteralParseError};
 pub use builder::{
     QpackFieldLineBuildError, QpackIndexedFieldLineBuilder, QpackIndexedPostBaseFieldLineBuilder,
     QpackLiteralNameFieldLineBuilder, QpackLiteralNameReferenceFieldLineBuilder,
