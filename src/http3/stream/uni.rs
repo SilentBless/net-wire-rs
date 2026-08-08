@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::quic::{
+use crate::quic::varint::{
     QuicVarInt, QuicVarIntBuildError, QuicVarIntBuilder, QuicVarIntLen, QuicVarIntParseError,
 };
 
@@ -151,8 +151,8 @@ impl<'a> Http3UniStreamHeader<'a> {
     pub(super) fn from_validated(
         bytes: &'a [u8],
         stream_type_value: u64,
-        stream_type_length: crate::quic::QuicVarIntLen,
-        push_id: Option<(u64, crate::quic::QuicVarIntLen)>,
+        stream_type_length: QuicVarIntLen,
+        push_id: Option<(u64, QuicVarIntLen)>,
     ) -> Self {
         let stream_type_length_bytes = stream_type_length.byte_len();
         let stream_type = QuicVarInt::from_validated(

@@ -1,11 +1,11 @@
 //! Standalone allocation-free TLS record and handshake wire views.
 mod builder;
 mod error;
-mod extensions;
+pub(crate) mod extensions;
 mod handshake;
 mod hello;
 mod record;
-mod types;
+pub(crate) mod types;
 pub use builder::{ClientHelloBuilder, ServerHelloBuilder, TlsExtensionBuilder};
 pub use error::{TlsBuildError, TlsParseError};
 pub use extensions::{

@@ -1,12 +1,12 @@
 //! RFC 9204 QPACK primitives.
 
-mod field;
+pub(crate) mod field;
 mod huffman;
 mod integer;
 mod state;
 mod stream;
 mod string;
-mod table;
+pub(crate) mod table;
 
 pub use field::{
     QpackDecodedFieldEntry, QpackDecodedFieldIter, QpackDecodedFieldRef, QpackDecodedFieldSection,

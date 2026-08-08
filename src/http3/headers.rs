@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::qpack::QpackDecodedFieldSection;
+use crate::qpack::field::section::decode::QpackDecodedFieldSection;
 
 use super::codepoints::Http3ErrorCode;
 use super::enums::message::{Http3HeadersContext, Http3HeadersKind};

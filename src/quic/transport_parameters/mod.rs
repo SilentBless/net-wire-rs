@@ -6,6 +6,10 @@ mod value;
 use core::{fmt, iter::FusedIterator};
 
 use super::varint::{QuicVarInt, QuicVarIntParseError};
+#[cfg(feature = "tls")]
+use crate::tls::extensions::extension::TlsExtension;
+#[cfg(feature = "tls")]
+use crate::tls::types::TlsExtensionType;
 
 pub use semantic::{
     QuicTransportParameterHandshakeContext, QuicTransportParameterHandshakeError,
@@ -176,7 +180,7 @@ pub enum QuicTransportParametersTlsExtensionError {
     /// The TLS extension has a type other than `quic_transport_parameters`.
     WrongExtensionType {
         /// Exact type carried by the TLS extension.
-        actual: crate::tls::TlsExtensionType,
+        actual: TlsExtensionType,
     },
     /// The extension payload is not a valid QUIC transport-parameter sequence.
     Parse(QuicTransportParameterParseError),
@@ -281,7 +285,7 @@ impl<'a> QuicTransportParameters<'a> {
 }
 
 #[cfg(feature = "tls")]
-impl<'a> crate::tls::TlsExtension<'a> {
+impl<'a> TlsExtension<'a> {
     /// Parses this RFC 9001 QUIC transport-parameters extension payload.
     ///
     /// RFC 9001 permits this extension in ClientHello and EncryptedExtensions and requires it
@@ -290,7 +294,7 @@ impl<'a> crate::tls::TlsExtension<'a> {
     pub fn quic_transport_parameters(
         &self,
     ) -> Result<QuicTransportParameters<'a>, QuicTransportParametersTlsExtensionError> {
-        if self.extension_type() != crate::tls::TlsExtensionType::QUIC_TRANSPORT_PARAMETERS {
+        if self.extension_type() != TlsExtensionType::QUIC_TRANSPORT_PARAMETERS {
             return Err(
                 QuicTransportParametersTlsExtensionError::WrongExtensionType {
                     actual: self.extension_type(),

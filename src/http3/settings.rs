@@ -3,7 +3,7 @@
 use core::fmt;
 use core::iter::FusedIterator;
 
-use crate::quic::{QuicVarInt, QuicVarIntBuildError};
+use crate::quic::varint::{QuicVarInt, QuicVarIntBuildError};
 
 use super::codepoints::{Http3FrameType, Http3SettingId};
 use super::frame::{

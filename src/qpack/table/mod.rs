@@ -1,6 +1,6 @@
 //! Shared QPACK table primitives.
 
-mod dynamic;
+pub(crate) mod dynamic;
 mod r#static;
 
 pub use dynamic::{QpackDynamicTable, QpackDynamicTableEntry, QpackDynamicTableError};

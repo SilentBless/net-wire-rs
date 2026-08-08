@@ -5,10 +5,11 @@
 
 use core::fmt;
 
-use crate::qpack::{
-    QpackDynamicTable, QpackFieldSectionDecodeError, QpackFieldSectionDecodeOutcome,
-    QpackFieldSectionDecoder, QpackFieldSectionOutput,
+use crate::qpack::field::section::decode::{
+    QpackFieldSectionDecodeError, QpackFieldSectionDecodeOutcome, QpackFieldSectionDecoder,
+    QpackFieldSectionOutput,
 };
+use crate::qpack::table::dynamic::QpackDynamicTable;
 
 use super::frame::{Http3Headers, Http3PushPromise};
 

@@ -4,7 +4,7 @@
 
 use core::fmt;
 
-use crate::quic::{
+use crate::quic::varint::{
     QuicVarInt, QuicVarIntBuildError, QuicVarIntBuilder, QuicVarIntLen, QuicVarIntParseError,
 };
 

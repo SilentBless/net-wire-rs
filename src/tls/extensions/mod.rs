@@ -1,7 +1,7 @@
 //! Typed, ordered TLS extension views.
 
 pub(super) mod alpn;
-pub(super) mod extension;
+pub(crate) mod extension;
 pub(super) mod key_share;
 pub(super) mod layout;
 pub(super) mod psk;

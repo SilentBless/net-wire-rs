@@ -4,7 +4,7 @@ mod builder;
 mod frame;
 mod packet;
 mod transport_parameters;
-mod varint;
+pub(crate) mod varint;
 
 pub use builder::{
     QuicHandshakePacketBuilder, QuicInitialPacketBuilder, QuicPacketBuildError,

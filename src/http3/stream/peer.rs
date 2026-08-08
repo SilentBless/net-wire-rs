@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::quic::QuicVarIntLen;
+use crate::quic::varint::QuicVarIntLen;
 
 use super::super::codepoints::{Http3ErrorCode, Http3StreamType};
 use super::super::enums::stream::{Http3EndpointRole, Http3UniStreamKind};
