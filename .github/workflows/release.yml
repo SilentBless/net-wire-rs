@@ -1,0 +1,50 @@
+name: Publish to crates.io
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install MSRV Rust
+        run: |
+          rustup toolchain install 1.91.0 --profile minimal
+          rustup component add rustfmt clippy --toolchain 1.91.0
+      - name: Verify tag matches package version
+        run: |
+          cargo +1.91.0 metadata --no-deps --format-version 1 | python3 -c '
+          import json
+          import sys
+
+          tag = sys.argv[1]
+          version = json.load(sys.stdin)["packages"][0]["version"]
+          expected = f"v{version}"
+          if tag != expected:
+              raise SystemExit(f"tag mismatch: expected {expected}, got {tag}")
+          ' "$GITHUB_REF_NAME"
+      - name: Check formatting
+        run: cargo +1.91.0 fmt --all -- --check
+      - name: Check empty default feature set
+        run: cargo +1.91.0 check --no-default-features
+      - name: Test
+        run: cargo +1.91.0 test --all-targets --all-features
+      - name: Lint
+        run: cargo +1.91.0 clippy --all-targets --all-features -- -D warnings
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo +1.91.0 doc --all-features --no-deps
+      - name: Dry-run publication
+        run: cargo +1.91.0 publish --dry-run
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo +1.91.0 publish

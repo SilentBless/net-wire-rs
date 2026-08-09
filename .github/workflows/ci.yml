@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Test
+        run: cargo +stable test --all-targets --all-features
+
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup component add rustfmt clippy --toolchain stable
+      - name: Check formatting
+        run: cargo +stable fmt --all -- --check
+      - name: Check empty default feature set
+        run: cargo +stable check --no-default-features
+      - name: Lint
+        run: cargo +stable clippy --all-targets --all-features -- -D warnings
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo +stable doc --all-features --no-deps
+      - name: List package contents
+        run: cargo +stable package --list
+      - name: Dry-run publication
+        run: cargo +stable publish --dry-run
+
+  msrv:
+    name: MSRV (Rust 1.91.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install MSRV Rust
+        run: |
+          rustup toolchain install 1.91.0 --profile minimal
+          rustup component add clippy --toolchain 1.91.0
+      - name: Check
+        run: cargo +1.91.0 check --all-targets --all-features
+      - name: Check empty default feature set
+        run: cargo +1.91.0 check --no-default-features
+      - name: Lint
+        run: cargo +1.91.0 clippy --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo +1.91.0 test --all-targets --all-features
