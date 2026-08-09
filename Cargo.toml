@@ -3,6 +3,14 @@ name = "net-wire"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.91"
+description = "Allocation-free no_std wire views and codecs for network protocols."
+documentation = "https://docs.rs/net-wire"
+homepage = "https://github.com/SilentBless/net-wire-rs"
+repository = "https://github.com/SilentBless/net-wire-rs"
+readme = "README.md"
+license = "MIT"
+keywords = ["network", "protocol", "no-std", "zero-copy", "wire"]
+categories = ["network-programming", "no-std", "parser-implementations", "encoding"]
 autotests = false
 
 [lib]
@@ -126,3 +134,6 @@ required-features = ["http3"]
 
 [lints.rust]
 unsafe_code = "deny"
+
+[package.metadata.docs.rs]
+all-features = true
