@@ -26,6 +26,24 @@ quic = []
 qpack = []
 http3 = ["quic", "qpack"]
 
+[dev-dependencies]
+socket2 = { version = "0.6.5", features = ["all"] }
+
+[[example]]
+name = "packet-inspector"
+path = "examples/packet-inspector/main.rs"
+required-features = ["ethernet", "ipv4", "ipv6", "udp", "tcp"]
+
+[[example]]
+name = "dns-query"
+path = "examples/dns-query/main.rs"
+required-features = ["ipv4", "udp"]
+
+[[example]]
+name = "tls-client-hello"
+path = "examples/tls-client-hello/main.rs"
+required-features = ["tls"]
+
 [[test]]
 name = "ethernet"
 path = "tests/ethernet/main.rs"
