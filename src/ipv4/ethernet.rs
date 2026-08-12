@@ -3,8 +3,8 @@
 use super::packet::{Ipv4Packet, Ipv4PacketMut};
 use crate::error::ParseError;
 use crate::ethernet::{
-    ether_type::EtherType,
     layout::{EthernetFrameView, EthernetFrameViewMut},
+    types::EtherType,
 };
 
 impl<'a> EthernetFrameView<'a> {

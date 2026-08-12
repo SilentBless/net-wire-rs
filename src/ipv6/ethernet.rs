@@ -1,8 +1,8 @@
 use super::packet::{Ipv6Packet, Ipv6PacketMut};
 use crate::error::ParseError;
 use crate::ethernet::{
-    ether_type::EtherType,
     layout::{EthernetFrameView, EthernetFrameViewMut},
+    types::EtherType,
 };
 
 impl<'a> EthernetFrameView<'a> {

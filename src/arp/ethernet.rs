@@ -1,7 +1,6 @@
 use crate::ethernet::{
-    address::MacAddress,
-    ether_type::EtherType,
     layout::{EthernetFrameView, EthernetFrameViewMut},
+    types::{EtherType, MacAddress},
 };
 
 use super::{ArpHardwareType, ArpPacketError, ArpPacketView, ArpPacketViewMut};
