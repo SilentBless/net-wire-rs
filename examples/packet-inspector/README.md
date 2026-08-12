@@ -3,7 +3,7 @@
 A small command-line example that prints a safe, layered summary of one Ethernet II frame with `net-wire`.
 
 > [!IMPORTANT]
-> Input is raw Ethernet II frame bytes, not a pcap file. Remove the four-byte Ethernet FCS before inspection.
+> Input is raw Ethernet II frame bytes, not a pcap file. Bound the input before inspection: the Ethernet view treats every byte after its 14-byte header as payload, including any supplied FCS or capture padding.
 
 ## ✨ What it shows
 

@@ -1,108 +1,93 @@
-use net_wire::ethernet::{EtherType, EthernetFrameBuildError, EthernetFrameBuilder};
+use net_wire::ethernet::{EtherType, EthernetFrameBuilder, EthernetFrameWriteError};
 
 use super::fixtures::{DESTINATION, SOURCE};
 
 #[test]
-fn rfc_894_builder_writes_header_only_and_limits_returned_view() {
-    let mut bytes = [
-        0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0xa1,
-        0xb2, 0xc3, 0xee, 0xff,
-    ];
+fn rfc_894_builder_writes_complete_frame_and_preserves_capacity_suffix() {
+    let mut bytes = [0x55; 19];
+    let payload = [0xa1, 0xb2, 0xc3];
+    let (frame, suffix) = EthernetFrameBuilder::new()
+        .destination(DESTINATION)
+        .source(SOURCE)
+        .ether_type(EtherType::IPV4)
+        .payload(&payload)
+        .build_into(&mut bytes)
+        .unwrap();
+    assert_eq!(
+        frame.as_bytes(),
+        [
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0x08, 0x00,
+            0xa1, 0xb2, 0xc3,
+        ]
+    );
+    assert_eq!(suffix, [0x55, 0x55]);
+}
 
-    {
-        let frame = EthernetFrameBuilder::new(&mut bytes, 3)
+#[test]
+fn builder_failures_are_atomic_for_capacity_and_every_required_field() {
+    let initial = [0xa5; 16];
+    let payload = [1, 2, 3];
+
+    let mut bytes = initial;
+    assert!(matches!(
+        EthernetFrameBuilder::new()
             .destination(DESTINATION)
             .source(SOURCE)
             .ether_type(EtherType::IPV4)
-            .build()
-            .unwrap();
-
-        assert_eq!(
-            frame.as_bytes(),
-            [
-                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0x08, 0x00,
-                0xa1, 0xb2, 0xc3,
-            ]
-        );
-    }
-    assert_eq!(bytes[17..], [0xee, 0xff]);
-}
-
-#[test]
-fn builder_insufficient_buffer_writes_nothing() {
-    let mut bytes = [0xa5; 16];
-
-    let result = EthernetFrameBuilder::new(&mut bytes, 3)
-        .destination(DESTINATION)
-        .source(SOURCE)
-        .ether_type(EtherType::IPV4)
-        .build();
-
-    assert_eq!(
-        result,
-        Err(EthernetFrameBuildError::BufferTooShort {
-            required: 17,
-            available: 16,
+            .payload(&payload)
+            .build_into(&mut bytes),
+        Err(EthernetFrameWriteError::OutputTooShort {
+            expected: 17,
+            actual: 16,
         })
-    );
-    assert_eq!(bytes, [0xa5; 16]);
-}
+    ));
+    assert_eq!(bytes, initial);
 
-#[test]
-fn builder_length_overflow_writes_nothing() {
-    let mut bytes = [0xa5; 14];
-
-    let result = EthernetFrameBuilder::new(&mut bytes, usize::MAX)
-        .destination(DESTINATION)
-        .source(SOURCE)
-        .ether_type(EtherType::IPV4)
-        .build();
-
-    assert_eq!(
-        result,
-        Err(EthernetFrameBuildError::LengthOverflow {
-            header_length: 14,
-            payload_length: usize::MAX,
+    let mut bytes = initial;
+    assert!(matches!(
+        EthernetFrameBuilder::new()
+            .source(SOURCE)
+            .ether_type(EtherType::IPV4)
+            .payload(&[])
+            .build_into(&mut bytes),
+        Err(EthernetFrameWriteError::MissingField {
+            field: "destination",
         })
-    );
-    assert_eq!(bytes, [0xa5; 14]);
-}
+    ));
+    assert_eq!(bytes, initial);
 
-#[test]
-fn builder_missing_destination_writes_nothing() {
-    let mut bytes = [0xa5; 14];
+    let mut bytes = initial;
+    assert!(matches!(
+        EthernetFrameBuilder::new()
+            .destination(DESTINATION)
+            .ether_type(EtherType::IPV4)
+            .payload(&[])
+            .build_into(&mut bytes),
+        Err(EthernetFrameWriteError::MissingField { field: "source" })
+    ));
+    assert_eq!(bytes, initial);
 
-    let result = EthernetFrameBuilder::new(&mut bytes, 0)
-        .source(SOURCE)
-        .ether_type(EtherType::IPV4)
-        .build();
+    let mut bytes = initial;
+    assert!(matches!(
+        EthernetFrameBuilder::new()
+            .destination(DESTINATION)
+            .source(SOURCE)
+            .payload(&[])
+            .build_into(&mut bytes),
+        Err(EthernetFrameWriteError::MissingField {
+            field: "ether_type",
+        })
+    ));
+    assert_eq!(bytes, initial);
 
-    assert_eq!(result, Err(EthernetFrameBuildError::MissingDestination));
-    assert_eq!(bytes, [0xa5; 14]);
-}
-
-#[test]
-fn builder_missing_source_writes_nothing() {
-    let mut bytes = [0xa5; 14];
-
-    let result = EthernetFrameBuilder::new(&mut bytes, 0)
-        .destination(DESTINATION)
-        .ether_type(EtherType::IPV4)
-        .build();
-
-    assert_eq!(result, Err(EthernetFrameBuildError::MissingSource));
-    assert_eq!(bytes, [0xa5; 14]);
-}
-
-#[test]
-fn builder_missing_ether_type_writes_nothing() {
-    let mut bytes = [0xa5; 14];
-
-    let result = EthernetFrameBuilder::new(&mut bytes, 0)
-        .destination(DESTINATION)
-        .source(SOURCE)
-        .build();
-
-    assert_eq!(result, Err(EthernetFrameBuildError::MissingEtherType));
-    assert_eq!(bytes, [0xa5; 14]);
+    let mut bytes = initial;
+    assert!(matches!(
+        EthernetFrameBuilder::new()
+            .destination(DESTINATION)
+            .source(SOURCE)
+            .ether_type(EtherType::IPV4)
+            .build_into(&mut bytes),
+        Err(EthernetFrameWriteError::MissingField { field: "payload" })
+    ));
+    assert_eq!(bytes, initial);
 }

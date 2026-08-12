@@ -19,7 +19,7 @@ It targets **Rust 1.91** and **edition 2024**.
 
 `net-wire` uses our [`wire-repr`](https://github.com/SilentBless/wire-repr-rs) library to generate safe byte-backed views and caller-buffer builders from explicit wire layouts. The generated code remains ordinary direct Rust: there are no runtime schemas, reflection, allocation, dynamic dispatch, or `unsafe` byte reinterpretation.
 
-The dependency is optional and protocol-scoped. It is currently enabled by the `arp` feature for the RFC 826 packet layout; builds without ARP do not compile or link `wire-repr`. Other protocol owners will migrate incrementally only where the generated representation preserves their existing wire and code-generation contracts.
+The dependency is optional and protocol-scoped. It is enabled by the `arp` and `ethernet` features; builds without either do not include `wire-repr` in the target graph. Other protocol owners will migrate incrementally only where the generated representation preserves their existing wire and code-generation contracts.
 
 ## 🚫 What it is not
 
@@ -40,25 +40,29 @@ Each layer first parses its own bounded bytes, then dispatches only when its dis
 
 ```rust
 use net_wire::{
-    ethernet::{EtherType, EthernetFrame},
+    ethernet::{EtherType, EthernetFrameView},
     ipv4::Ipv4Packet,
 };
 
-fn inspect(bytes: &[u8]) -> Result<(), net_wire::ParseError> {
-    let frame = EthernetFrame::parse(bytes)?;
+fn inspect(bytes: &[u8]) {
+    let Ok(frame) = EthernetFrameView::parse_exact(bytes) else {
+        return;
+    };
     if frame.ether_type() != EtherType::IPV4 {
-        return Ok(());
+        return;
     }
 
-    let packet = Ipv4Packet::parse(frame.payload())?;
-    match packet.udp()? {
-        Some(datagram) => {
+    let Ok(packet) = Ipv4Packet::parse(frame.payload()) else {
+        return;
+    };
+    match packet.udp() {
+        Ok(Some(datagram)) => {
             println!("UDP {} -> {}", datagram.source_port(), datagram.destination_port());
             println!("payload: {:02x?}", datagram.payload());
         }
-        None => println!("not a whole UDP datagram for this IPv4 packet"),
+        Ok(None) => println!("not a whole UDP datagram for this IPv4 packet"),
+        Err(error) => println!("malformed UDP datagram: {error}"),
     }
-    Ok(())
 }
 ```
 
@@ -102,6 +106,9 @@ let packet = Ipv4PacketBuilder::new(&mut bytes, 8 + payload.len())
     .unwrap();
 assert!(packet.checksum_is_valid());
 ```
+
+> [!IMPORTANT]
+> `EthernetFrameView` is caller-bounded: all bytes after its 14-byte header are payload. Remove or otherwise exclude an FCS and capture padding before parsing when they are not part of the payload.
 
 > [!IMPORTANT]
 > Structural validation answers whether bytes form a safely bounded layout. Semantic validation answers protocol-specific questions such as allowed values, ordering, or state transitions. Keep those decisions explicit.

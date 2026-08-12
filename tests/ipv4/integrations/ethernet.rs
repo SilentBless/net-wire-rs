@@ -1,6 +1,6 @@
 use crate::fixtures::BASIC;
 use net_wire::ParseError;
-use net_wire::ethernet::{EthernetFrame, EthernetFrameMut};
+use net_wire::ethernet::{EthernetFrameView, EthernetFrameViewMut};
 
 fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
     let mut bytes = vec![
@@ -26,20 +26,20 @@ fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
 #[test]
 fn ipv4_dispatch_matches_ether_type_and_writes_through() {
     assert!(
-        EthernetFrame::parse(&frame(0x0800, &BASIC[..20]))
+        EthernetFrameView::parse_exact(&frame(0x0800, &BASIC[..20]))
             .unwrap()
             .ipv4()
             .unwrap()
             .is_some()
     );
     assert_eq!(
-        EthernetFrame::parse(&frame(0x86dd, &BASIC[..20]))
+        EthernetFrameView::parse_exact(&frame(0x86dd, &BASIC[..20]))
             .unwrap()
             .ipv4(),
         Ok(None)
     );
     assert_eq!(
-        EthernetFrame::parse(&frame(0x0800, &BASIC[..19]))
+        EthernetFrameView::parse_exact(&frame(0x0800, &BASIC[..19]))
             .unwrap()
             .ipv4(),
         Err(ParseError::Truncated {
@@ -49,7 +49,7 @@ fn ipv4_dispatch_matches_ether_type_and_writes_through() {
     );
 
     let mut bytes = frame(0x0800, &BASIC[..20]);
-    let mut ethernet = EthernetFrameMut::parse(&mut bytes).unwrap();
+    let mut ethernet = EthernetFrameViewMut::parse_exact_mut(&mut bytes).unwrap();
     ethernet.ipv4_mut().unwrap().unwrap().set_ttl(1);
     assert_eq!(ethernet.payload()[8], 1);
 }

@@ -1,6 +1,6 @@
 use crate::fixtures::WIRE;
 use net_wire::ParseError;
-use net_wire::ethernet::{EthernetFrame, EthernetFrameMut};
+use net_wire::ethernet::{EthernetFrameView, EthernetFrameViewMut};
 
 fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
     let mut bytes = vec![0; 14];
@@ -13,7 +13,7 @@ fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
 fn ipv6_dispatch_contract() {
     let ip = &WIRE[..43];
     assert_eq!(
-        EthernetFrame::parse(&frame(0x0800, ip))
+        EthernetFrameView::parse_exact(&frame(0x0800, ip))
             .unwrap()
             .ipv6()
             .unwrap(),
@@ -21,7 +21,7 @@ fn ipv6_dispatch_contract() {
     );
 
     let bytes = frame(0x86dd, ip);
-    let packet = EthernetFrame::parse(&bytes)
+    let packet = EthernetFrameView::parse_exact(&bytes)
         .unwrap()
         .ipv6()
         .unwrap()
@@ -29,7 +29,7 @@ fn ipv6_dispatch_contract() {
     assert_eq!((packet.as_bytes(), packet.next_header().raw()), (ip, 0xfd));
 
     assert_eq!(
-        EthernetFrame::parse(&frame(0x86dd, &ip[..40]))
+        EthernetFrameView::parse_exact(&frame(0x86dd, &ip[..40]))
             .unwrap()
             .ipv6(),
         Err(ParseError::Truncated {
@@ -42,7 +42,7 @@ fn ipv6_dispatch_contract() {
 #[test]
 fn mutable_ipv6_dispatch_writes_frame_payload() {
     let mut bytes = frame(0x86dd, &WIRE[..43]);
-    let mut frame = EthernetFrameMut::parse(&mut bytes).unwrap();
+    let mut frame = EthernetFrameViewMut::parse_exact_mut(&mut bytes).unwrap();
     frame.ipv6_mut().unwrap().unwrap().payload_mut()[1] = 9;
     assert_eq!(bytes[14 + 41], 9);
 }

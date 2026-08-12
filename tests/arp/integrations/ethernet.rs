@@ -1,4 +1,4 @@
-use net_wire::ethernet::{EthernetFrame, EthernetFrameMut, MacAddress};
+use net_wire::ethernet::{EthernetFrameView, EthernetFrameViewMut, MacAddress};
 
 fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
     let mut bytes = vec![0; 14];
@@ -13,7 +13,7 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
         0, 1, 8, 0, 6, 4, 0, 1, 1, 2, 3, 4, 5, 6, 192, 0, 2, 1, 0, 0, 0, 0, 0, 0, 192, 0, 2, 2,
     ];
     assert_eq!(
-        EthernetFrame::parse(&frame(0x0800, &arp))
+        EthernetFrameView::parse_exact(&frame(0x0800, &arp))
             .unwrap()
             .arp()
             .unwrap(),
@@ -21,7 +21,7 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
     );
 
     let bytes = frame(0x0806, &arp);
-    let packet = EthernetFrame::parse(&bytes)
+    let packet = EthernetFrameView::parse_exact(&bytes)
         .unwrap()
         .arp()
         .unwrap()
@@ -33,7 +33,7 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
     assert_eq!(packet.target_mac_address(), Some(MacAddress::new([0; 6])));
 
     assert!(
-        EthernetFrame::parse(&frame(0x0806, &arp[..7]))
+        EthernetFrameView::parse_exact(&frame(0x0806, &arp[..7]))
             .unwrap()
             .arp()
             .is_err()
@@ -43,7 +43,7 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
         0, 2, 8, 0, 6, 4, 0, 1, 1, 2, 3, 4, 5, 6, 192, 0, 2, 1, 0, 0, 0, 0, 0, 0, 192, 0, 2, 2,
     ];
     assert_eq!(
-        EthernetFrame::parse(&frame(0x0806, &wrong_hardware_type))
+        EthernetFrameView::parse_exact(&frame(0x0806, &wrong_hardware_type))
             .unwrap()
             .arp()
             .unwrap()
@@ -56,7 +56,7 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
         0, 1, 8, 0, 5, 4, 0, 1, 1, 2, 3, 4, 5, 192, 0, 2, 1, 0, 0, 0, 0, 0, 192, 0, 2, 2,
     ];
     assert_eq!(
-        EthernetFrame::parse(&frame(0x0806, &short_hardware_address))
+        EthernetFrameView::parse_exact(&frame(0x0806, &short_hardware_address))
             .unwrap()
             .arp()
             .unwrap()
@@ -72,7 +72,7 @@ fn mutable_arp_dispatch_writes_frame_payload() {
         0x0806,
         &[0, 1, 8, 0, 1, 4, 0, 1, 9, 192, 0, 2, 1, 8, 192, 0, 2, 2],
     );
-    let mut frame = EthernetFrameMut::parse(&mut bytes).unwrap();
+    let mut frame = EthernetFrameViewMut::parse_exact_mut(&mut bytes).unwrap();
     frame
         .arp_mut()
         .unwrap()

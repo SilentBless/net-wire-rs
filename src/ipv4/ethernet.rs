@@ -4,10 +4,10 @@ use super::packet::{Ipv4Packet, Ipv4PacketMut};
 use crate::error::ParseError;
 use crate::ethernet::{
     ether_type::EtherType,
-    frame::{EthernetFrame, EthernetFrameMut},
+    layout::{EthernetFrameView, EthernetFrameViewMut},
 };
 
-impl<'a> EthernetFrame<'a> {
+impl<'a> EthernetFrameView<'a> {
     /// Parses IPv4 only for the IPv4 EtherType.
     #[inline]
     pub fn ipv4(&self) -> Result<Option<Ipv4Packet<'a>>, ParseError> {
@@ -18,7 +18,7 @@ impl<'a> EthernetFrame<'a> {
     }
 }
 
-impl<'a> EthernetFrameMut<'a> {
+impl<'a> EthernetFrameViewMut<'a> {
     /// Parses mutable IPv4 only for the IPv4 EtherType.
     #[inline]
     pub fn ipv4_mut(&mut self) -> Result<Option<Ipv4PacketMut<'_>>, ParseError> {

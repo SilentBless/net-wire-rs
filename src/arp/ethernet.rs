@@ -1,12 +1,12 @@
 use crate::ethernet::{
     address::MacAddress,
     ether_type::EtherType,
-    frame::{EthernetFrame, EthernetFrameMut},
+    layout::{EthernetFrameView, EthernetFrameViewMut},
 };
 
 use super::{ArpHardwareType, ArpPacketError, ArpPacketView, ArpPacketViewMut};
 
-impl<'a> EthernetFrame<'a> {
+impl<'a> EthernetFrameView<'a> {
     /// Parses an ARP payload only when this frame's EtherType is ARP.
     #[inline]
     pub fn arp(&self) -> Result<Option<ArpPacketView<'a>>, ArpPacketError> {
@@ -17,7 +17,7 @@ impl<'a> EthernetFrame<'a> {
     }
 }
 
-impl<'a> EthernetFrameMut<'a> {
+impl<'a> EthernetFrameViewMut<'a> {
     /// Parses a mutable ARP payload only when this frame's EtherType is ARP.
     #[inline]
     pub fn arp_mut(&mut self) -> Result<Option<ArpPacketViewMut<'_>>, ArpPacketError> {

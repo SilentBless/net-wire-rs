@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use net_wire::{
-    ethernet::{EtherType, EthernetFrame, EthernetFrameBuilder, MacAddress},
+    ethernet::{EtherType, EthernetFrameBuilder, EthernetFrameView, MacAddress},
     ipv4::{Ipv4Address, Ipv4Packet, Ipv4PacketBuilder, Ipv4Protocol},
     ipv6::{Ipv6Packet, Ipv6PayloadLength},
     udp::{UdpChecksumStatus, UdpDatagramBuilder},
@@ -17,22 +17,20 @@ pub fn demo_frame() -> Result<Vec<u8>, String> {
     let destination = Ipv4Address::new([198, 51, 100, 20]);
     let udp_length = UDP_HEADER_LENGTH + DEMO_PAYLOAD.len();
     let ip_length = IPV4_HEADER_LENGTH + udp_length;
-    let mut bytes = vec![0; ETHERNET_HEADER_LENGTH + ip_length];
+    let mut ip_bytes = vec![0; ip_length];
 
     {
-        let mut udp = UdpDatagramBuilder::new(
-            &mut bytes[ETHERNET_HEADER_LENGTH + IPV4_HEADER_LENGTH..],
-            DEMO_PAYLOAD.len(),
-        )
-        .source_port(49152)
-        .destination_port(443)
-        .build()
-        .map_err(|error| format!("could not build the demo UDP datagram: {error}"))?;
+        let mut udp =
+            UdpDatagramBuilder::new(&mut ip_bytes[IPV4_HEADER_LENGTH..], DEMO_PAYLOAD.len())
+                .source_port(49152)
+                .destination_port(443)
+                .build()
+                .map_err(|error| format!("could not build the demo UDP datagram: {error}"))?;
         udp.payload_mut().copy_from_slice(DEMO_PAYLOAD);
         udp.update_checksum_ipv4(source, destination);
     }
 
-    Ipv4PacketBuilder::new(&mut bytes[ETHERNET_HEADER_LENGTH..], udp_length)
+    Ipv4PacketBuilder::new(&mut ip_bytes, udp_length)
         .source(source)
         .destination(destination)
         .protocol(Ipv4Protocol::UDP)
@@ -41,11 +39,13 @@ pub fn demo_frame() -> Result<Vec<u8>, String> {
         .build()
         .map_err(|error| format!("could not build the demo IPv4 packet: {error}"))?;
 
-    EthernetFrameBuilder::new(&mut bytes, ip_length)
+    let mut bytes = vec![0; ETHERNET_HEADER_LENGTH + ip_bytes.len()];
+    EthernetFrameBuilder::new()
         .destination(MacAddress::new([0x02, 0x00, 0x00, 0x00, 0x00, 0x02]))
         .source(MacAddress::new([0x02, 0x00, 0x00, 0x00, 0x00, 0x01]))
         .ether_type(EtherType::IPV4)
-        .build()
+        .payload(&ip_bytes)
+        .build_into(&mut bytes)
         .map_err(|error| format!("could not build the demo Ethernet frame: {error}"))?;
 
     Ok(bytes)
@@ -55,7 +55,7 @@ pub fn report(bytes: &[u8]) -> String {
     let mut output = String::new();
     let _ = writeln!(output, "Frame: {} bytes supplied", bytes.len());
 
-    let frame = match EthernetFrame::parse(bytes) {
+    let frame = match EthernetFrameView::parse_exact(bytes) {
         Ok(frame) => frame,
         Err(error) => {
             let _ = writeln!(output, "Ethernet: parse failed: {error}");

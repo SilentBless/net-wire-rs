@@ -44,3 +44,17 @@ impl EtherType {
         self.0
     }
 }
+
+impl From<u16> for EtherType {
+    #[inline]
+    fn from(raw: u16) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl From<EtherType> for u16 {
+    #[inline]
+    fn from(ether_type: EtherType) -> Self {
+        ether_type.raw()
+    }
+}

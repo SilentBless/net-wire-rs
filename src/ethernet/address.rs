@@ -33,3 +33,17 @@ impl fmt::Display for MacAddress {
         write!(formatter, "{a:02x}:{b:02x}:{c:02x}:{d:02x}:{e:02x}:{f:02x}")
     }
 }
+
+impl From<[u8; 6]> for MacAddress {
+    #[inline]
+    fn from(octets: [u8; 6]) -> Self {
+        Self::new(octets)
+    }
+}
+
+impl From<MacAddress> for [u8; 6] {
+    #[inline]
+    fn from(address: MacAddress) -> Self {
+        address.octets()
+    }
+}
