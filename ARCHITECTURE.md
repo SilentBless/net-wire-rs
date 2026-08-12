@@ -53,6 +53,8 @@ Every parser documents whether it accepts one prefix, returns a suffix, or valid
 - APIs whose public contract returns `(item, suffix)` do so directly, including KCP segments and QUIC frames.
 - Complete-sequence parsers validate the whole sequence, as with QPACK instruction sequences.
 
+External framing remains caller-owned when the bytes do not identify their own boundary. Ethernet II is the reference case: the on-medium frame may contain minimum-frame padding and a four-octet FCS, but the header has no payload length, receive paths commonly strip the FCS, and capture input may contain either trailer independently. The Ethernet view therefore consumes the caller-bounded remainder instead of guessing. A nested IPv4 `total_length` can exclude trailing Ethernet bytes from the IPv4 view, but it cannot classify that tail as padding or prove an FCS. Source or capture metadata must own that interpretation.
+
 Do not force these different wire contracts behind a generic cursor or a uniform consumption API. Check every length, offset, and conversion with exact bounds and checked arithmetic. Unknown values remain raw if their envelope establishes a boundary; return an unsupported-layout error only when the layout itself cannot be known.
 
 ## ✍️ Writing and mutation

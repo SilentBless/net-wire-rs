@@ -108,7 +108,9 @@ assert!(packet.checksum_is_valid());
 ```
 
 > [!IMPORTANT]
-> `EthernetFrameView` is caller-bounded: all bytes after its 14-byte header are payload. Remove or otherwise exclude an FCS and capture padding before parsing when they are not part of the payload.
+> An Ethernet frame on the medium may end with minimum-frame padding and a four-byte FCS. `EthernetFrameView` intentionally does not guess those boundaries: Ethernet II has no payload-length field, receive APIs commonly remove the FCS, and captured input may contain padding, FCS, both, or neither. The view is therefore caller-bounded and treats every supplied byte after its 14-byte header as payload. Use capture metadata to exclude known trailers before parsing.
+>
+> A nested parser may establish a narrower boundary. In the example above, IPv4's `total_length` keeps trailing Ethernet bytes out of `Ipv4Packet` and its UDP/TCP payload. The remaining bytes are still only an unclassified tail; without source metadata they cannot safely be called padding or a valid FCS, and `Ipv4Packet::parse` does not return them as a formal suffix.
 
 > [!IMPORTANT]
 > Structural validation answers whether bytes form a safely bounded layout. Semantic validation answers protocol-specific questions such as allowed values, ordering, or state transitions. Keep those decisions explicit.

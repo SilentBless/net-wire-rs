@@ -3,7 +3,7 @@
 A small command-line example that prints a safe, layered summary of one Ethernet II frame with `net-wire`.
 
 > [!IMPORTANT]
-> Input is raw Ethernet II frame bytes, not a pcap file. Bound the input before inspection: the Ethernet view treats every byte after its 14-byte header as payload, including any supplied FCS or capture padding.
+> Input is raw Ethernet II frame bytes, not a pcap file. An on-medium frame may include minimum-frame padding and a four-byte FCS, but Ethernet II has no payload-length field and receive APIs commonly strip the FCS. The Ethernet view therefore treats every supplied byte after its 14-byte header as payload. Use capture metadata to remove known trailers before inspection rather than guessing from the bytes.
 
 ## ✨ What it shows
 
@@ -63,7 +63,7 @@ UDP:
 - It handles Ethernet II, IPv4, IPv6, UDP, and TCP only. It does not decode DNS, TLS, VLAN tags, or IPv6 extension contents.
 - IPv6 transport dispatch uses the crate's supported extension traversal. A fragment or unsupported traversal is reported rather than guessed at.
 - Unknown EtherTypes and IP protocol values remain visible as raw codepoints.
-- The Ethernet view does **not** detect FCS bytes. Every byte after the 14-byte Ethernet header is payload under the current API contract, so capture padding may be represented as payload too.
+- IPv4 `total_length` prevents a supplied Ethernet trailer from entering the parsed IPv4 packet or its transport payload. Any bytes beyond that boundary remain unclassified: they might be padding, FCS, another capture trailer, or malformed input. This example does not recover or validate them as an Ethernet FCS.
 
 > [!WARNING]
 > Checksum output validates bytes as supplied. Capture hardware checksum offload, truncation, or an included FCS can make an otherwise legitimate capture look invalid.
