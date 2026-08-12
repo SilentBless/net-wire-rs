@@ -1,4 +1,3 @@
-use net_wire::ParseError;
 use net_wire::ethernet::{EthernetFrame, EthernetFrameMut, MacAddress};
 
 fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
@@ -33,14 +32,11 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
     );
     assert_eq!(packet.target_mac_address(), Some(MacAddress::new([0; 6])));
 
-    assert_eq!(
+    assert!(
         EthernetFrame::parse(&frame(0x0806, &arp[..7]))
             .unwrap()
-            .arp(),
-        Err(ParseError::Truncated {
-            minimum: 8,
-            available: 7
-        })
+            .arp()
+            .is_err()
     );
 
     let wrong_hardware_type = [

@@ -19,7 +19,7 @@ name = "net_wire"
 [features]
 default = []
 ethernet = []
-arp = []
+arp = ["dep:wire-repr"]
 ipv4 = []
 ipv6 = []
 icmpv4 = []
@@ -33,6 +33,9 @@ http2 = []
 quic = []
 qpack = []
 http3 = ["quic", "qpack"]
+
+[dependencies]
+wire-repr = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
 socket2 = { version = "0.6.5", features = ["all"] }

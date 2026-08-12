@@ -22,6 +22,20 @@ impl ArpHardwareType {
     }
 }
 
+impl From<u16> for ArpHardwareType {
+    #[inline]
+    fn from(raw: u16) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl From<ArpHardwareType> for u16 {
+    #[inline]
+    fn from(value: ArpHardwareType) -> Self {
+        value.raw()
+    }
+}
+
 /// An ARP protocol type, conventionally an EtherType, from RFC 826.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -41,6 +55,20 @@ impl ArpProtocolType {
     #[inline]
     pub const fn raw(self) -> u16 {
         self.0
+    }
+}
+
+impl From<u16> for ArpProtocolType {
+    #[inline]
+    fn from(raw: u16) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl From<ArpProtocolType> for u16 {
+    #[inline]
+    fn from(value: ArpProtocolType) -> Self {
+        value.raw()
     }
 }
 
@@ -65,5 +93,19 @@ impl ArpOperation {
     #[inline]
     pub const fn raw(self) -> u16 {
         self.0
+    }
+}
+
+impl From<u16> for ArpOperation {
+    #[inline]
+    fn from(raw: u16) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl From<ArpOperation> for u16 {
+    #[inline]
+    fn from(value: ArpOperation) -> Self {
+        value.raw()
     }
 }

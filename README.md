@@ -6,7 +6,7 @@ It targets **Rust 1.91** and **edition 2024**.
 
 ## ✨ What it promises
 
-- **No production allocation, dependencies, or `unsafe`.** Production code is allocation-free, has zero normal dependencies, and builds with `unsafe_code = deny`.
+- **No production allocation or `unsafe`.** Production code is allocation-free and builds with `unsafe_code = deny`; protocol-scoped dependencies remain opt-in with their features.
 - **Opt in deliberately.** The default feature set is empty.
 - **Borrowed wire views.** Variable-length bytes stay borrowed from caller input; construction writes into caller-provided buffers.
 - **Wire fidelity.** Unknown, private, reserved, GREASE, duplicate, ordered, and legal noncanonical values remain representable and preserved when the format permits them.
@@ -14,6 +14,12 @@ It targets **Rust 1.91** and **edition 2024**.
 
 > [!NOTE]
 > A successful parse establishes the structural boundary promised by that parser. It does not silently apply an application's semantic policy.
+
+## 🧱 Built with `wire-repr`
+
+`net-wire` uses our [`wire-repr`](https://github.com/SilentBless/wire-repr-rs) library to generate safe byte-backed views and caller-buffer builders from explicit wire layouts. The generated code remains ordinary direct Rust: there are no runtime schemas, reflection, allocation, dynamic dispatch, or `unsafe` byte reinterpretation.
+
+The dependency is optional and protocol-scoped. It is currently enabled by the `arp` feature for the RFC 826 packet layout; builds without ARP do not compile or link `wire-repr`. Other protocol owners will migrate incrementally only where the generated representation preserves their existing wire and code-generation contracts.
 
 ## 🚫 What it is not
 

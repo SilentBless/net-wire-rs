@@ -1,36 +1,34 @@
-use crate::error::ParseError;
 use crate::ethernet::{
     address::MacAddress,
     ether_type::EtherType,
     frame::{EthernetFrame, EthernetFrameMut},
 };
 
-use super::packet::{ArpPacket, ArpPacketMut};
-use super::types::ArpHardwareType;
+use super::{ArpHardwareType, ArpPacketError, ArpPacketView, ArpPacketViewMut};
 
 impl<'a> EthernetFrame<'a> {
     /// Parses an ARP payload only when this frame's EtherType is ARP.
     #[inline]
-    pub fn arp(&self) -> Result<Option<ArpPacket<'a>>, ParseError> {
+    pub fn arp(&self) -> Result<Option<ArpPacketView<'a>>, ArpPacketError> {
         if self.ether_type() != EtherType::ARP {
             return Ok(None);
         }
-        ArpPacket::parse(self.payload()).map(Some)
+        ArpPacketView::parse_prefix(self.payload()).map(|(packet, _)| Some(packet))
     }
 }
 
 impl<'a> EthernetFrameMut<'a> {
     /// Parses a mutable ARP payload only when this frame's EtherType is ARP.
     #[inline]
-    pub fn arp_mut(&mut self) -> Result<Option<ArpPacketMut<'_>>, ParseError> {
+    pub fn arp_mut(&mut self) -> Result<Option<ArpPacketViewMut<'_>>, ArpPacketError> {
         if self.ether_type() != EtherType::ARP {
             return Ok(None);
         }
-        ArpPacketMut::parse(self.payload_mut()).map(Some)
+        ArpPacketViewMut::parse_prefix_mut(self.payload_mut()).map(|(packet, _)| Some(packet))
     }
 }
 
-impl<'a> ArpPacket<'a> {
+impl ArpPacketView<'_> {
     /// Returns the sender MAC address only for Ethernet hardware with a six-octet address.
     #[inline]
     pub fn sender_mac_address(&self) -> Option<MacAddress> {
@@ -45,6 +43,7 @@ impl<'a> ArpPacket<'a> {
                 .expect("checked address length"),
         ))
     }
+
     /// Returns the target MAC address only for Ethernet hardware with a six-octet address.
     #[inline]
     pub fn target_mac_address(&self) -> Option<MacAddress> {

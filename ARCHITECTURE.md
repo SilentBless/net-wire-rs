@@ -77,11 +77,13 @@ Do not put a project's local extension parser into `net-wire` merely because it 
 
 ## ⚙️ Features and dependencies
 
-This is one package and one crate, using Rust 1.91 and edition 2024. It has `#![no_std]`, `#![deny(missing_docs)]`, `unsafe_code = deny`, an empty default feature set, no production allocation, no production I/O, and no normal production dependencies.
+This is one package and one crate, using Rust 1.91 and edition 2024. It has `#![no_std]`, `#![deny(missing_docs)]`, `unsafe_code = deny`, an empty default feature set, no production allocation, and no production I/O. `wire-repr` is an optional protocol-scoped production dependency currently used by ARP.
 
 Protocol features own their modules: Ethernet, ARP, IPv4/IPv6, ICMPv4/ICMPv6, UDP/TCP, KCP, TLS, HTTP/1, HTTP/2 (including HPACK), QUIC, QPACK, and HTTP/3. `http3` enables `quic` and `qpack`. Cross-layer adapters use conjunction gates; they must not create transitive upper-layer coupling.
 
-Keep hot wire paths direct. Avoid trait frameworks, dynamic dispatch, broad generic combinators, generated code, `build.rs`, and macros unless a real accepted need proves them smaller and clearer than direct code.
+Keep hot wire paths direct. Avoid trait frameworks, dynamic dispatch, broad generic combinators, `build.rs`, and macros unless a real accepted need proves them smaller and clearer than direct code. Generated layout code is acceptable only where verified direct operations preserve the protocol API, bounds, and atomicity.
+
+A generated layout owns physical field placement, framing, borrowed views, and caller-buffer construction. Protocol modules continue to own nominal value spaces, registry constants, semantic validation, and cross-layer behavior. Map physical scalar fields to those protocol-owned types rather than moving domain semantics into the layout DSL.
 
 ## 🗂️ Code organization and testing
 

@@ -1,132 +1,157 @@
 use net_wire::arp::{
-    ArpHardwareType, ArpOperation, ArpPacketBuildError, ArpPacketBuilder, ArpPacketMut,
-    ArpProtocolType,
+    ArpHardwareType, ArpOperation, ArpPacketBuilder, ArpPacketWriteError, ArpProtocolType,
 };
 
 use super::fixtures::GENERIC;
 
-fn built_from_local<'a>(buffer: &'a mut [u8]) -> ArpPacketMut<'a> {
-    let sender_hardware = [1, 2, 3];
-    let sender_protocol = [4, 5];
-    let target_hardware = [6, 7, 8];
-    let target_protocol = [9, 10];
-    ArpPacketBuilder::new(buffer)
+fn builder<'a>() -> ArpPacketBuilder<'a> {
+    ArpPacketBuilder::new()
         .hardware_type(ArpHardwareType::new(0x1234))
         .protocol_type(ArpProtocolType::new(0xbeef))
         .operation(ArpOperation::new(0xcafe))
-        .addresses(
-            &sender_hardware,
-            &sender_protocol,
-            &target_hardware,
-            &target_protocol,
-        )
-        .build()
-        .unwrap()
+        .sender_hardware_address(&[1, 2, 3])
+        .sender_protocol_address(&[4, 5])
+        .target_hardware_address(&[6, 7, 8])
+        .target_protocol_address(&[9, 10])
 }
 
 #[test]
-fn builder_writes_independent_rfc826_fixture_only() {
+fn builder_derives_lengths_and_preserves_output_suffix() {
     let mut bytes = [0xa5; 23];
-    let packet = built_from_local(&mut bytes);
+    let (packet, suffix) = builder().build_into(&mut bytes).unwrap();
     assert_eq!(packet.as_bytes(), &GENERIC[..18]);
-    assert_eq!(packet.as_bytes().len(), 18);
-    assert_eq!(&bytes[18..], &[0xa5; 5]);
+    assert_eq!(packet.hardware_type(), ArpHardwareType::new(0x1234));
+    assert_eq!(packet.hardware_type_raw(), 0x1234);
+    assert_eq!(packet.protocol_type(), ArpProtocolType::new(0xbeef));
+    assert_eq!(packet.protocol_type_raw(), 0xbeef);
+    assert_eq!(packet.operation(), ArpOperation::new(0xcafe));
+    assert_eq!(packet.operation_raw(), 0xcafe);
+    assert_eq!(packet.hardware_address_length(), 3);
+    assert_eq!(packet.protocol_address_length(), 2);
+    assert_eq!(suffix, &[0xa5; 5]);
 }
 
 #[test]
-fn builder_errors_are_precedence_exact_and_atomic() {
-    let hw = [1u8; 3];
-    let proto = [2u8; 2];
+fn builder_raw_inputs_replace_semantic_inputs() {
+    let mut bytes = [0; 18];
+    let (packet, _) = ArpPacketBuilder::new()
+        .hardware_type(ArpHardwareType::ETHERNET)
+        .hardware_type_raw(0x1234)
+        .protocol_type(ArpProtocolType::IPV4)
+        .protocol_type_raw(0xbeef)
+        .operation(ArpOperation::REQUEST)
+        .operation_raw(0xcafe)
+        .sender_hardware_address(&[1, 2, 3])
+        .sender_protocol_address(&[4, 5])
+        .target_hardware_address(&[6, 7, 8])
+        .target_protocol_address(&[9, 10])
+        .build_into(&mut bytes)
+        .unwrap();
+    assert_eq!(packet.hardware_type(), ArpHardwareType::new(0x1234));
+    assert_eq!(packet.hardware_type_raw(), 0x1234);
+    assert_eq!(packet.protocol_type(), ArpProtocolType::new(0xbeef));
+    assert_eq!(packet.protocol_type_raw(), 0xbeef);
+    assert_eq!(packet.operation(), ArpOperation::new(0xcafe));
+    assert_eq!(packet.operation_raw(), 0xcafe);
+}
+
+#[test]
+fn builder_accepts_zero_lengths_and_rejects_invalid_requests_atomically() {
+    let mut zero = [0xa5; 9];
+    let (packet, suffix) = ArpPacketBuilder::new()
+        .hardware_type(ArpHardwareType::ETHERNET)
+        .protocol_type(ArpProtocolType::IPV4)
+        .operation(ArpOperation::REQUEST)
+        .sender_hardware_address(&[])
+        .sender_protocol_address(&[])
+        .target_hardware_address(&[])
+        .target_protocol_address(&[])
+        .build_into(&mut zero)
+        .unwrap();
+    assert_eq!(packet.as_bytes().len(), 8);
+    assert_eq!(suffix, &[0xa5]);
+
+    let mut output = [0xa5; 32];
+    let before = output;
+    assert!(matches!(
+        builder()
+            .target_hardware_address(&[6, 7])
+            .build_into(&mut output),
+        Err(ArpPacketWriteError::ConflictingRegionLengths {
+            source_position: 3,
+            first_region_position: 6,
+            conflicting_region_position: 8,
+            expected: 3,
+            actual: 2,
+        })
+    ));
+    assert_eq!(output, before);
+
+    let mut output = [0xa5; 32];
+    let before = output;
+    assert!(matches!(
+        builder()
+            .target_protocol_address(&[9])
+            .build_into(&mut output),
+        Err(ArpPacketWriteError::ConflictingRegionLengths {
+            source_position: 4,
+            first_region_position: 7,
+            conflicting_region_position: 9,
+            expected: 2,
+            actual: 1,
+        })
+    ));
+    assert_eq!(output, before);
+
     let long = [0u8; 256];
-    macro_rules! check {
-        ($builder:expr, $error:expr) => {{
-            let mut b = [0xa5; 32];
-            let before = b;
-            assert_eq!($builder(&mut b), Err($error));
-            assert_eq!(b, before);
-        }};
-    }
-    fn build_missing_hw(b: &mut [u8]) -> Result<ArpPacketMut<'_>, ArpPacketBuildError> {
-        ArpPacketBuilder::new(b).build()
-    }
-    fn build_missing_proto(b: &mut [u8]) -> Result<ArpPacketMut<'_>, ArpPacketBuildError> {
-        ArpPacketBuilder::new(b)
-            .hardware_type(ArpHardwareType::ETHERNET)
-            .build()
-    }
-    fn build_missing_op(b: &mut [u8]) -> Result<ArpPacketMut<'_>, ArpPacketBuildError> {
-        ArpPacketBuilder::new(b)
-            .hardware_type(ArpHardwareType::ETHERNET)
-            .protocol_type(ArpProtocolType::IPV4)
-            .build()
-    }
-    fn build_missing_addresses(b: &mut [u8]) -> Result<ArpPacketMut<'_>, ArpPacketBuildError> {
-        ArpPacketBuilder::new(b)
-            .hardware_type(ArpHardwareType::ETHERNET)
-            .protocol_type(ArpProtocolType::IPV4)
-            .operation(ArpOperation::REQUEST)
-            .build()
-    }
-    check!(build_missing_hw, ArpPacketBuildError::MissingHardwareType);
-    check!(
-        build_missing_proto,
-        ArpPacketBuildError::MissingProtocolType
-    );
-    check!(build_missing_op, ArpPacketBuildError::MissingOperation);
-    check!(
-        build_missing_addresses,
-        ArpPacketBuildError::MissingAddresses
-    );
-    let mut b = [0xa5; 32];
-    let before = b;
-    assert_eq!(
-        ArpPacketBuilder::new(&mut b)
-            .hardware_type(ArpHardwareType::ETHERNET)
-            .protocol_type(ArpProtocolType::IPV4)
-            .operation(ArpOperation::REQUEST)
-            .addresses(&hw, &proto, &[3; 2], &proto)
-            .build(),
-        Err(ArpPacketBuildError::AddressLengthMismatch)
-    );
-    assert_eq!(b, before);
-    let mut b = [0xa5; 32];
-    let before = b;
-    assert_eq!(
-        ArpPacketBuilder::new(&mut b)
-            .hardware_type(ArpHardwareType::ETHERNET)
-            .protocol_type(ArpProtocolType::IPV4)
-            .operation(ArpOperation::REQUEST)
-            .addresses(&hw, &proto, &hw, &[3])
-            .build(),
-        Err(ArpPacketBuildError::AddressLengthMismatch)
-    );
-    assert_eq!(b, before);
-    let mut b = [0xa5; 600];
-    let before = b;
-    assert_eq!(
-        ArpPacketBuilder::new(&mut b)
-            .hardware_type(ArpHardwareType::ETHERNET)
-            .protocol_type(ArpProtocolType::IPV4)
-            .operation(ArpOperation::REQUEST)
-            .addresses(&long, &proto, &long, &proto)
-            .build(),
-        Err(ArpPacketBuildError::AddressLengthTooLarge)
-    );
-    assert_eq!(b, before);
-    // A 17-byte caller buffer cannot hold the 18-byte encoded layout.
+    let mut output = [0xa5; 600];
+    let before = output;
+    assert!(matches!(
+        builder()
+            .sender_hardware_address(&long)
+            .target_hardware_address(&long)
+            .build_into(&mut output),
+        Err(ArpPacketWriteError::InvalidRegionLength {
+            position: 6,
+            source_position: 3,
+            length: 256,
+        })
+    ));
+    assert_eq!(output, before);
+
+    let mut output = [0xa5; 600];
+    let before = output;
+    assert!(matches!(
+        builder()
+            .sender_protocol_address(&long)
+            .target_protocol_address(&long)
+            .build_into(&mut output),
+        Err(ArpPacketWriteError::InvalidRegionLength {
+            position: 7,
+            source_position: 4,
+            length: 256,
+        })
+    ));
+    assert_eq!(output, before);
+
+    let mut output = [0xa5; 32];
+    let before = output;
+    assert!(matches!(
+        ArpPacketBuilder::new().build_into(&mut output),
+        Err(ArpPacketWriteError::MissingField {
+            field: "hardware_type"
+        })
+    ));
+    assert_eq!(output, before);
+
     let mut short = [0xa5; 17];
     let before = short;
-    assert_eq!(
-        ArpPacketBuilder::new(&mut short)
-            .hardware_type(ArpHardwareType::new(0x1234))
-            .protocol_type(ArpProtocolType::new(0xbeef))
-            .operation(ArpOperation::new(0xcafe))
-            .addresses(&hw, &proto, &hw, &proto)
-            .build(),
-        Err(ArpPacketBuildError::BufferTooShort {
-            required: 18,
-            available: 17
+    assert!(matches!(
+        builder().build_into(&mut short),
+        Err(ArpPacketWriteError::OutputTooShort {
+            expected: 18,
+            actual: 17,
         })
-    );
+    ));
     assert_eq!(short, before);
 }
