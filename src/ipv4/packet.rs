@@ -1,21 +1,73 @@
 //! IPv4 packet views and header-checksum handling (RFC 791).
 
 use super::address::Ipv4Address;
-use super::layout::Ipv4FixedHeaderView;
+use super::layout::{
+    Ipv4AddressRepr, Ipv4PacketLayoutMutationError, Ipv4PacketLayoutView, Ipv4PacketLayoutViewMut,
+};
 use super::protocol::Ipv4Protocol;
 use crate::{error::ParseError, internet_checksum};
+use core::fmt;
 
 pub(super) const HEADER_LENGTH: usize = 20;
 
+/// An IPv4 field encoding failure.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Ipv4PacketMutationError {
+    /// A field value could not be encoded at its required wire width.
+    InvalidFieldEncoding {
+        /// The field whose plan was invalid.
+        field: &'static str,
+        /// The required fixed width.
+        expected: usize,
+        /// The encoded width that was produced.
+        actual: usize,
+    },
+}
+
+impl fmt::Display for Ipv4PacketMutationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidFieldEncoding {
+                field,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "IPv4 field {field} plan length: expected {expected} bytes, got {actual}"
+            ),
+        }
+    }
+}
+impl core::error::Error for Ipv4PacketMutationError {}
+
+fn mutation_error(error: Ipv4PacketLayoutMutationError) -> Ipv4PacketMutationError {
+    match error {
+        Ipv4PacketLayoutMutationError::FieldVersionIhl(error)
+        | Ipv4PacketLayoutMutationError::FieldDscpEcn(error)
+        | Ipv4PacketLayoutMutationError::FieldTotalLength(error)
+        | Ipv4PacketLayoutMutationError::FieldIdentification(error)
+        | Ipv4PacketLayoutMutationError::FieldFlagsFragmentOffset(error)
+        | Ipv4PacketLayoutMutationError::FieldTtl(error)
+        | Ipv4PacketLayoutMutationError::FieldProtocol(error)
+        | Ipv4PacketLayoutMutationError::FieldHeaderChecksum(error)
+        | Ipv4PacketLayoutMutationError::FieldSource(error)
+        | Ipv4PacketLayoutMutationError::FieldDestination(error) => match error {},
+        Ipv4PacketLayoutMutationError::InvalidPlanLength {
+            field,
+            expected,
+            actual,
+        } => Ipv4PacketMutationError::InvalidFieldEncoding {
+            field,
+            expected,
+            actual,
+        },
+    }
+}
+
 /// A structurally validated immutable RFC 791 packet view.
-///
-/// Parsing validates version, IHL, and declared total length, then excludes trailing capture
-/// bytes. It deliberately accepts bad checksums and reserved flags for capture/offload and
-/// malformed-packet inspection.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ipv4Packet<'a> {
-    bytes: &'a [u8],
-    fixed_header: Ipv4FixedHeaderView<'a>,
+    layout: Ipv4PacketLayoutView<'a>,
     header_length: usize,
 }
 
@@ -23,10 +75,131 @@ impl<'a> Ipv4Packet<'a> {
     /// Validates RFC 791 structural bounds; use `checksum_is_valid` for checksum acceptance.
     #[inline]
     pub fn parse(bytes: &'a [u8]) -> Result<Self, ParseError> {
-        let (fixed_header, header_length, total_length) = validate(bytes)?;
+        let (header_length, total_length) = validate(bytes)?;
+        let layout = Ipv4PacketLayoutView::parse_exact(&bytes[..total_length]).map_err(|_| {
+            ParseError::Truncated {
+                minimum: total_length,
+                available: bytes.len(),
+            }
+        })?;
         Ok(Self {
-            bytes: &bytes[..total_length],
-            fixed_header,
+            layout,
+            header_length,
+        })
+    }
+    /// Returns the combined DSCP/ECN octet.
+    #[inline]
+    pub fn dscp_ecn(&self) -> u8 {
+        self.layout.dscp_ecn()
+    }
+    /// Returns the RFC 791 total-length field.
+    #[inline]
+    pub fn total_length(&self) -> u16 {
+        self.layout.total_length()
+    }
+    /// Returns the datagram identification.
+    #[inline]
+    pub fn identification(&self) -> u16 {
+        self.layout.identification()
+    }
+    /// Returns the raw flags and fragment offset.
+    #[inline]
+    pub fn flags_fragment_offset(&self) -> u16 {
+        self.layout.flags_fragment_offset()
+    }
+    /// Returns the time to live.
+    #[inline]
+    pub fn ttl(&self) -> u8 {
+        self.layout.ttl()
+    }
+    /// Returns the protocol field, including unknown values.
+    #[inline]
+    pub fn protocol(&self) -> Ipv4Protocol {
+        Ipv4Protocol::new(self.layout.protocol())
+    }
+    /// Returns the encoded header checksum.
+    #[inline]
+    pub fn header_checksum(&self) -> u16 {
+        self.layout.header_checksum()
+    }
+    /// Returns the source address.
+    #[inline]
+    pub fn source(&self) -> Ipv4Address {
+        self.layout.source().into_address()
+    }
+    /// Returns the destination address.
+    #[inline]
+    pub fn destination(&self) -> Ipv4Address {
+        self.layout.destination().into_address()
+    }
+    /// Returns RFC 791 option bytes included by IHL.
+    #[inline]
+    pub fn options(&self) -> &'a [u8] {
+        &self.layout.body()[..self.header_length - HEADER_LENGTH]
+    }
+    /// Returns declared payload bytes.
+    #[inline]
+    pub fn payload(&self) -> &'a [u8] {
+        &self.layout.body()[self.header_length - HEADER_LENGTH..]
+    }
+    /// Returns exactly the declared IPv4 packet bytes.
+    #[inline]
+    pub fn as_bytes(&self) -> &'a [u8] {
+        self.layout.as_bytes()
+    }
+    /// Checks the one's-complement checksum across the complete IHL, including options.
+    #[inline]
+    pub fn checksum_is_valid(&self) -> bool {
+        internet_checksum::sum(&self.as_bytes()[..self.header_length]) == 0xffff
+    }
+}
+
+/// A structurally validated mutable RFC 791 packet view.
+pub struct Ipv4PacketMut<'a> {
+    layout: Ipv4PacketLayoutViewMut<'a>,
+    header_length: usize,
+}
+
+impl fmt::Debug for Ipv4PacketMut<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Ipv4PacketMut")
+            .field("bytes", &self.as_bytes())
+            .field("header_length", &self.header_length)
+            .finish()
+    }
+}
+
+impl PartialEq for Ipv4PacketMut<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.header_length == other.header_length && self.as_bytes() == other.as_bytes()
+    }
+}
+
+impl Eq for Ipv4PacketMut<'_> {}
+
+impl<'a> Ipv4PacketMut<'a> {
+    /// Validates RFC 791 structural bounds and excludes trailing bytes.
+    #[inline]
+    pub fn parse(bytes: &'a mut [u8]) -> Result<Self, ParseError> {
+        let (header_length, total_length) = validate(bytes)?;
+        let available = bytes.len();
+        Self::from_exact(&mut bytes[..total_length], header_length).map_err(|_| {
+            ParseError::Truncated {
+                minimum: total_length,
+                available,
+            }
+        })
+    }
+
+    pub(super) fn from_exact(
+        bytes: &'a mut [u8],
+        header_length: usize,
+    ) -> Result<Self, Ipv4PacketRepresentationError> {
+        let layout = Ipv4PacketLayoutViewMut::parse_exact_mut(bytes)
+            .map_err(|_| Ipv4PacketRepresentationError::InvalidLayout)?;
+        Ok(Self {
+            layout,
             header_length,
         })
     }
@@ -34,264 +207,178 @@ impl<'a> Ipv4Packet<'a> {
     /// Returns the combined DSCP/ECN octet.
     #[inline]
     pub fn dscp_ecn(&self) -> u8 {
-        self.fixed_header.dscp_ecn()
-    }
-
-    /// Returns the RFC 791 total-length field.
-    #[inline]
-    pub fn total_length(&self) -> u16 {
-        self.fixed_header.total_length()
-    }
-
-    /// Returns the identification field.
-    #[inline]
-    pub fn identification(&self) -> u16 {
-        self.fixed_header.identification()
-    }
-
-    /// Returns the raw flags and fragment-offset field, including the reserved flag.
-    #[inline]
-    pub fn flags_fragment_offset(&self) -> u16 {
-        self.fixed_header.flags_fragment_offset()
-    }
-
-    /// Returns the time-to-live field.
-    #[inline]
-    pub fn ttl(&self) -> u8 {
-        self.fixed_header.ttl()
-    }
-
-    /// Returns the protocol field while preserving unknown values.
-    #[inline]
-    pub fn protocol(&self) -> Ipv4Protocol {
-        Ipv4Protocol::new(self.fixed_header.protocol())
-    }
-
-    /// Returns the encoded RFC 791 header checksum.
-    #[inline]
-    pub fn header_checksum(&self) -> u16 {
-        self.fixed_header.header_checksum()
-    }
-
-    /// Returns the source address.
-    #[inline]
-    pub fn source(&self) -> Ipv4Address {
-        let octets = self.fixed_header.source();
-        Ipv4Address::new([octets[0], octets[1], octets[2], octets[3]])
-    }
-
-    /// Returns the destination address.
-    #[inline]
-    pub fn destination(&self) -> Ipv4Address {
-        let octets = self.fixed_header.destination();
-        Ipv4Address::new([octets[0], octets[1], octets[2], octets[3]])
-    }
-
-    /// Returns RFC 791 option bytes included by IHL.
-    #[inline]
-    pub fn options(&self) -> &'a [u8] {
-        &self.bytes[HEADER_LENGTH..self.header_length]
-    }
-
-    /// Returns declared payload bytes; they are not header-checksum covered.
-    #[inline]
-    pub fn payload(&self) -> &'a [u8] {
-        &self.bytes[self.header_length..]
-    }
-
-    /// Returns exactly the declared IPv4 packet bytes.
-    #[inline]
-    pub fn as_bytes(&self) -> &'a [u8] {
-        self.bytes
-    }
-
-    /// Checks the one's-complement checksum across the complete IHL, including options.
-    #[inline]
-    pub fn checksum_is_valid(&self) -> bool {
-        internet_checksum::sum(&self.bytes[..self.header_length]) == 0xffff
-    }
-}
-
-/// A structurally validated mutable RFC 791 packet view.
-#[derive(Debug, Eq, PartialEq)]
-pub struct Ipv4PacketMut<'a> {
-    bytes: &'a mut [u8],
-    header_length: usize,
-}
-
-impl<'a> Ipv4PacketMut<'a> {
-    /// Validates RFC 791 structural bounds and excludes trailing bytes.
-    #[inline]
-    pub fn parse(bytes: &'a mut [u8]) -> Result<Self, ParseError> {
-        let (_, header_length, total_length) = validate(bytes)?;
-        Ok(Self::from_validated(
-            &mut bytes[..total_length],
-            header_length,
-        ))
-    }
-
-    pub(super) fn from_validated(bytes: &'a mut [u8], header_length: usize) -> Self {
-        Self {
-            bytes,
-            header_length,
-        }
-    }
-
-    /// Returns the combined DSCP/ECN octet.
-    #[inline]
-    pub fn dscp_ecn(&self) -> u8 {
-        self.bytes[1]
+        self.layout.dscp_ecn()
     }
     /// Returns the RFC 791 total-length field.
     #[inline]
     pub fn total_length(&self) -> u16 {
-        u16::from_be_bytes([self.bytes[2], self.bytes[3]])
+        self.layout.total_length()
     }
-    /// Returns the identification field.
+    /// Returns the datagram identification.
     #[inline]
     pub fn identification(&self) -> u16 {
-        u16::from_be_bytes([self.bytes[4], self.bytes[5]])
+        self.layout.identification()
     }
-    /// Returns raw flags and fragment offset.
+    /// Returns the raw flags and fragment offset.
     #[inline]
     pub fn flags_fragment_offset(&self) -> u16 {
-        u16::from_be_bytes([self.bytes[6], self.bytes[7]])
+        self.layout.flags_fragment_offset()
     }
-    /// Returns the time-to-live field.
+    /// Returns the time to live.
     #[inline]
     pub fn ttl(&self) -> u8 {
-        self.bytes[8]
+        self.layout.ttl()
     }
-    /// Returns the protocol value, including unknown values.
+    /// Returns the protocol field, including unknown values.
     #[inline]
     pub fn protocol(&self) -> Ipv4Protocol {
-        Ipv4Protocol::new(self.bytes[9])
+        Ipv4Protocol::new(self.layout.protocol())
     }
     /// Returns the encoded header checksum.
     #[inline]
     pub fn header_checksum(&self) -> u16 {
-        u16::from_be_bytes([self.bytes[10], self.bytes[11]])
+        self.layout.header_checksum()
     }
     /// Returns the source address.
     #[inline]
     pub fn source(&self) -> Ipv4Address {
-        Ipv4Address::new([
-            self.bytes[12],
-            self.bytes[13],
-            self.bytes[14],
-            self.bytes[15],
-        ])
+        self.layout.source().into_address()
     }
     /// Returns the destination address.
     #[inline]
     pub fn destination(&self) -> Ipv4Address {
-        Ipv4Address::new([
-            self.bytes[16],
-            self.bytes[17],
-            self.bytes[18],
-            self.bytes[19],
-        ])
+        self.layout.destination().into_address()
     }
-    /// Returns option bytes included by IHL.
+    /// Returns RFC 791 option bytes included by IHL.
     #[inline]
     pub fn options(&self) -> &[u8] {
-        &self.bytes[HEADER_LENGTH..self.header_length]
+        &self.layout.body()[..self.header_length - HEADER_LENGTH]
     }
-    /// Returns payload bytes, which are not header-checksum covered.
+    /// Returns declared payload bytes.
     #[inline]
     pub fn payload(&self) -> &[u8] {
-        &self.bytes[self.header_length..]
+        &self.layout.body()[self.header_length - HEADER_LENGTH..]
     }
-    /// Returns mutable options; this does not update the header checksum.
+    /// Returns mutable options without updating the checksum.
     #[inline]
     pub fn options_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes[HEADER_LENGTH..self.header_length]
+        let n = self.header_length - HEADER_LENGTH;
+        &mut self.layout.body_mut()[..n]
     }
-    /// Returns mutable payload bytes, which are not header-checksum covered.
+    /// Returns mutable payload bytes.
     #[inline]
     pub fn payload_mut(&mut self) -> &mut [u8] {
-        &mut self.bytes[self.header_length..]
+        let n = self.header_length - HEADER_LENGTH;
+        &mut self.layout.body_mut()[n..]
     }
-    /// Returns the represented packet bytes.
+    /// Returns exactly the represented IPv4 packet bytes.
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
-        self.bytes
-    }
-    /// Returns all represented bytes mutably.
-    #[inline]
-    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
-        self.bytes
+        self.layout.as_bytes()
     }
 
     /// Replaces DSCP/ECN without updating the checksum.
     #[inline]
-    pub fn set_dscp_ecn(&mut self, value: u8) {
-        self.bytes[1] = value;
+    pub fn set_dscp_ecn(&mut self, value: u8) -> Result<(), Ipv4PacketMutationError> {
+        self.layout.set_dscp_ecn(value).map_err(mutation_error)
     }
     /// Replaces identification without updating the checksum.
     #[inline]
-    pub fn set_identification(&mut self, value: u16) {
-        self.bytes[4..6].copy_from_slice(&value.to_be_bytes());
+    pub fn set_identification(&mut self, value: u16) -> Result<(), Ipv4PacketMutationError> {
+        self.layout
+            .set_identification(value)
+            .map_err(mutation_error)
     }
     /// Replaces raw flags and fragment offset without updating the checksum.
     #[inline]
-    pub fn set_flags_fragment_offset(&mut self, value: u16) {
-        self.bytes[6..8].copy_from_slice(&value.to_be_bytes());
+    pub fn set_flags_fragment_offset(&mut self, value: u16) -> Result<(), Ipv4PacketMutationError> {
+        self.layout
+            .set_flags_fragment_offset(value)
+            .map_err(mutation_error)
     }
     /// Replaces TTL without updating the checksum.
     #[inline]
-    pub fn set_ttl(&mut self, value: u8) {
-        self.bytes[8] = value;
+    pub fn set_ttl(&mut self, value: u8) -> Result<(), Ipv4PacketMutationError> {
+        self.layout.set_ttl(value).map_err(mutation_error)
     }
-    /// Replaces protocol without updating the checksum.
+    /// Replaces the protocol without updating the checksum.
     #[inline]
-    pub fn set_protocol(&mut self, value: Ipv4Protocol) {
-        self.bytes[9] = value.raw();
+    pub fn set_protocol(&mut self, value: Ipv4Protocol) -> Result<(), Ipv4PacketMutationError> {
+        self.layout
+            .set_protocol(value.raw())
+            .map_err(mutation_error)
     }
-    /// Replaces the encoded checksum directly.
+    /// Replaces the encoded header checksum directly.
     #[inline]
-    pub fn set_header_checksum(&mut self, value: u16) {
-        self.bytes[10..12].copy_from_slice(&value.to_be_bytes());
+    pub fn set_header_checksum(&mut self, value: u16) -> Result<(), Ipv4PacketMutationError> {
+        self.layout
+            .set_header_checksum(value)
+            .map_err(mutation_error)
     }
-    /// Replaces source without updating the checksum.
+    /// Replaces the source without updating the checksum.
     #[inline]
-    pub fn set_source(&mut self, value: Ipv4Address) {
-        self.bytes[12..16].copy_from_slice(&value.octets());
+    pub fn set_source(&mut self, value: Ipv4Address) -> Result<(), Ipv4PacketMutationError> {
+        self.layout
+            .set_source(Ipv4AddressRepr::from_address(value))
+            .map_err(mutation_error)
     }
-    /// Replaces destination without updating the checksum.
+    /// Replaces the destination without updating the checksum.
     #[inline]
-    pub fn set_destination(&mut self, value: Ipv4Address) {
-        self.bytes[16..20].copy_from_slice(&value.octets());
+    pub fn set_destination(&mut self, value: Ipv4Address) -> Result<(), Ipv4PacketMutationError> {
+        self.layout
+            .set_destination(Ipv4AddressRepr::from_address(value))
+            .map_err(mutation_error)
     }
     /// Recomputes and writes the checksum across the full IHL, including options.
     #[inline]
-    pub fn update_header_checksum(&mut self) {
-        self.set_header_checksum(0);
-        self.set_header_checksum(!internet_checksum::sum(&self.bytes[..self.header_length]));
+    pub fn update_header_checksum(&mut self) -> Result<(), Ipv4PacketMutationError> {
+        let header = &self.as_bytes()[..self.header_length];
+        let sum = internet_checksum::add_bytes(0, &header[..10]);
+        let sum = internet_checksum::add_bytes(sum, &[0, 0]);
+        let checksum = !internet_checksum::fold(internet_checksum::add_bytes(sum, &header[12..]));
+        self.set_header_checksum(checksum)
     }
-    /// Checks the current checksum across the full IHL.
+    /// Checks the current header checksum across the complete IHL.
     #[inline]
     pub fn checksum_is_valid(&self) -> bool {
-        internet_checksum::sum(&self.bytes[..self.header_length]) == 0xffff
+        internet_checksum::sum(&self.as_bytes()[..self.header_length]) == 0xffff
     }
 }
 
+/// Internal IPv4 representation failure.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum Ipv4PacketRepresentationError {
+    /// A generated representation unexpectedly rejected a prevalidated layout.
+    InvalidLayout,
+}
+impl fmt::Display for Ipv4PacketRepresentationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("generated IPv4 representation rejected a prevalidated layout")
+    }
+}
+impl core::error::Error for Ipv4PacketRepresentationError {}
+
 #[inline]
-fn validate(bytes: &[u8]) -> Result<(Ipv4FixedHeaderView<'_>, usize, usize), ParseError> {
+fn validate(bytes: &[u8]) -> Result<(usize, usize), ParseError> {
     if bytes.len() < HEADER_LENGTH {
         return Err(ParseError::Truncated {
             minimum: HEADER_LENGTH,
             available: bytes.len(),
         });
     }
-    let version = bytes[0] >> 4;
+    let preliminary =
+        Ipv4PacketLayoutView::parse_exact(bytes).map_err(|_| ParseError::Truncated {
+            minimum: HEADER_LENGTH,
+            available: bytes.len(),
+        })?;
+    let version = preliminary.version();
     if version != 4 {
         return Err(ParseError::InvalidVersion {
             expected: 4,
             actual: version,
         });
     }
-    let header_length = usize::from(bytes[0] & 15) * 4;
+    let header_length = usize::from(preliminary.ihl()) * 4;
     if header_length < HEADER_LENGTH {
         return Err(ParseError::InvalidHeaderLength {
             minimum: HEADER_LENGTH,
@@ -304,13 +391,7 @@ fn validate(bytes: &[u8]) -> Result<(Ipv4FixedHeaderView<'_>, usize, usize), Par
             available: bytes.len(),
         });
     }
-    let fixed_header = Ipv4FixedHeaderView::parse_exact(&bytes[..HEADER_LENGTH]).map_err(|_| {
-        ParseError::Truncated {
-            minimum: HEADER_LENGTH,
-            available: bytes.len(),
-        }
-    })?;
-    let total_length = usize::from(fixed_header.total_length());
+    let total_length = usize::from(preliminary.total_length());
     if total_length < header_length {
         return Err(ParseError::InvalidTotalLength {
             header_length,
@@ -323,5 +404,5 @@ fn validate(bytes: &[u8]) -> Result<(Ipv4FixedHeaderView<'_>, usize, usize), Par
             available: bytes.len(),
         });
     }
-    Ok((fixed_header, header_length, total_length))
+    Ok((header_length, total_length))
 }

@@ -6,7 +6,7 @@ It targets **Rust 1.91** and **edition 2024**.
 
 ## ✨ What it promises
 
-- **No production allocation or `unsafe`.** Production code is allocation-free and builds with `unsafe_code = deny`; protocol-scoped dependencies remain opt-in with their features.
+- **No production allocation or `unsafe`.** Production code is allocation-free and builds with `unsafe_code = deny`; the foundational `wire-repr` representation dependency is always present; protocol surfaces remain opt-in with their features.
 - **Opt in deliberately.** The default feature set is empty.
 - **Borrowed wire views.** Variable-length bytes stay borrowed from caller input; construction writes into caller-provided buffers.
 - **Wire fidelity.** Unknown, private, reserved, GREASE, duplicate, ordered, and legal noncanonical values remain representable and preserved when the format permits them.
@@ -19,7 +19,7 @@ It targets **Rust 1.91** and **edition 2024**.
 
 `net-wire` uses our [`wire-repr`](https://github.com/SilentBless/wire-repr-rs) library to generate safe byte-backed views and caller-buffer builders from explicit wire layouts. The generated code remains ordinary direct Rust: there are no runtime schemas, reflection, allocation, dynamic dispatch, or `unsafe` byte reinterpretation.
 
-The dependency is optional and protocol-scoped. It is enabled by the `arp`, `ethernet`, and `ipv4` features; builds without any of those features do not include `wire-repr` in the target graph. Other protocol owners will migrate incrementally only where the generated representation preserves their existing wire and code-generation contracts.
+It is a foundational physical-representation dependency rather than an optional protocol-scoped feature edge. Protocol features still select their public surfaces; `wire-repr` remains available to the crate regardless of those selections. Other protocol owners will migrate incrementally only where the generated representation preserves their existing wire and code-generation contracts.
 
 ## 🚫 What it is not
 
@@ -115,7 +115,7 @@ assert!(packet.checksum_is_valid());
 > [!IMPORTANT]
 > Structural validation answers whether bytes form a safely bounded layout. Semantic validation answers protocol-specific questions such as allowed values, ordering, or state transitions. Keep those decisions explicit.
 >
-> Editing payloads or fields through mutable views can stale checksums and dependent lengths. Setters and raw mutable slices do not repair them automatically; recompute or rebuild in the right order.
+> Editing payloads or fields through mutable views can stale checksums and dependent lengths. Setters and mutable protocol regions do not repair them automatically; recompute or rebuild in the right order. Whole-view mutable bytes are exposed only where changing them cannot invalidate cached framing.
 
 ## 🧭 Consumption is part of the contract
 

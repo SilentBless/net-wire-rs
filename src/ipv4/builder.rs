@@ -1,8 +1,9 @@
 use super::address::Ipv4Address;
+use super::layout::{Ipv4AddressRepr, Ipv4PacketLayoutBuilder, Ipv4PacketLayoutWriteError};
 use super::packet::{HEADER_LENGTH, Ipv4PacketMut};
 use super::protocol::Ipv4Protocol;
-use crate::internet_checksum;
 use core::fmt;
+
 /// IPv4 builder validation failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Ipv4PacketBuildError {
@@ -27,6 +28,17 @@ pub enum Ipv4PacketBuildError {
         /// Available bytes.
         available: usize,
     },
+    /// A field value could not be encoded at its required wire width.
+    InvalidFieldEncoding {
+        /// The field whose encoding was invalid.
+        field: &'static str,
+        /// The required fixed width.
+        expected: usize,
+        /// The encoded width that was produced.
+        actual: usize,
+    },
+    /// The validated packet could not be represented by the IPv4 layout.
+    InvalidRepresentation,
 }
 impl fmt::Display for Ipv4PacketBuildError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -47,9 +59,55 @@ impl fmt::Display for Ipv4PacketBuildError {
                 f,
                 "IPv4 buffer is too short: need {required} bytes, have {available}"
             ),
+            Self::InvalidFieldEncoding {
+                field,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "IPv4 field {field} encoding: expected {expected} bytes, got {actual}"
+            ),
+            Self::InvalidRepresentation => {
+                f.write_str("validated IPv4 packet could not be represented")
+            }
         }
     }
 }
+impl core::error::Error for Ipv4PacketBuildError {}
+
+fn representation_error(error: Ipv4PacketLayoutWriteError) -> Ipv4PacketBuildError {
+    match error {
+        Ipv4PacketLayoutWriteError::FieldVersionIhl(error)
+        | Ipv4PacketLayoutWriteError::FieldDscpEcn(error)
+        | Ipv4PacketLayoutWriteError::FieldTotalLength(error)
+        | Ipv4PacketLayoutWriteError::FieldIdentification(error)
+        | Ipv4PacketLayoutWriteError::FieldFlagsFragmentOffset(error)
+        | Ipv4PacketLayoutWriteError::FieldTtl(error)
+        | Ipv4PacketLayoutWriteError::FieldProtocol(error)
+        | Ipv4PacketLayoutWriteError::FieldHeaderChecksum(error)
+        | Ipv4PacketLayoutWriteError::FieldSource(error)
+        | Ipv4PacketLayoutWriteError::FieldDestination(error) => match error {},
+        Ipv4PacketLayoutWriteError::InvalidPlanLength {
+            field,
+            expected,
+            actual,
+        } => Ipv4PacketBuildError::InvalidFieldEncoding {
+            field,
+            expected,
+            actual,
+        },
+        Ipv4PacketLayoutWriteError::InvalidCodecWidth { .. }
+        | Ipv4PacketLayoutWriteError::InvalidRangeSource { .. }
+        | Ipv4PacketLayoutWriteError::ConflictingRangeSources { .. }
+        | Ipv4PacketLayoutWriteError::InvalidPrefixPlanLength { .. }
+        | Ipv4PacketLayoutWriteError::InvalidLayoutExtent { .. }
+        | Ipv4PacketLayoutWriteError::OutputTooShort { .. }
+        | Ipv4PacketLayoutWriteError::MissingField { .. } => {
+            Ipv4PacketBuildError::InvalidRepresentation
+        }
+    }
+}
+
 /// Caller-buffer IPv4 builder.
 pub struct Ipv4PacketBuilder<'buffer, 'input> {
     buffer: &'buffer mut [u8],
@@ -128,6 +186,7 @@ impl<'buffer, 'input> Ipv4PacketBuilder<'buffer, 'input> {
         self.options = v;
         self
     }
+
     /// Validates before all writes, writes/header-checksums only the header, and preserves payload and trailing capacity.
     #[inline]
     pub fn build(self) -> Result<Ipv4PacketMut<'buffer>, Ipv4PacketBuildError> {
@@ -156,21 +215,46 @@ impl<'buffer, 'input> Ipv4PacketBuilder<'buffer, 'input> {
                 available: self.buffer.len(),
             });
         }
-        let b = &mut self.buffer[..total];
-        b[0] = 0x40 | ((header / 4) as u8);
-        b[1] = self.dscp;
-        b[2..4].copy_from_slice(&(total as u16).to_be_bytes());
-        b[4..6].copy_from_slice(&self.identification.to_be_bytes());
-        b[6..8].copy_from_slice(&self.flags.to_be_bytes());
-        b[8] = ttl;
-        b[9] = protocol.raw();
-        b[10] = 0;
-        b[11] = 0;
-        b[12..16].copy_from_slice(&source.octets());
-        b[16..20].copy_from_slice(&destination.octets());
-        b[HEADER_LENGTH..header].copy_from_slice(self.options);
-        let checksum = !internet_checksum::sum(&b[..header]);
-        b[10..12].copy_from_slice(&checksum.to_be_bytes());
-        Ok(Ipv4PacketMut::from_validated(b, header))
+
+        let mut fixed = [0_u8; HEADER_LENGTH];
+        let (fixed_view, fixed_suffix) = Ipv4PacketLayoutBuilder::new()
+            .version_ihl(0x40 | (header / 4) as u8)
+            .dscp_ecn(self.dscp)
+            .total_length(total as u16)
+            .identification(self.identification)
+            .flags_fragment_offset(self.flags)
+            .ttl(ttl)
+            .protocol(protocol.raw())
+            .header_checksum(0)
+            .source(Ipv4AddressRepr::from_address(source))
+            .destination(Ipv4AddressRepr::from_address(destination))
+            .body(&[])
+            .build_into(&mut fixed)
+            .map_err(representation_error)?;
+        if !fixed_suffix.is_empty() || fixed_view.as_bytes().len() != HEADER_LENGTH {
+            return Err(Ipv4PacketBuildError::InvalidRepresentation);
+        }
+
+        let mut header_plan = [0_u8; 60];
+        header_plan[..HEADER_LENGTH].copy_from_slice(fixed_view.as_bytes());
+        header_plan[HEADER_LENGTH..header].copy_from_slice(self.options);
+        let mut header_view = Ipv4PacketMut::from_exact(&mut header_plan[..header], header)
+            .map_err(|_| Ipv4PacketBuildError::InvalidRepresentation)?;
+        header_view
+            .update_header_checksum()
+            .map_err(|error| match error {
+                super::packet::Ipv4PacketMutationError::InvalidFieldEncoding {
+                    field,
+                    expected,
+                    actual,
+                } => Ipv4PacketBuildError::InvalidFieldEncoding {
+                    field,
+                    expected,
+                    actual,
+                },
+            })?;
+        self.buffer[..header].copy_from_slice(header_view.as_bytes());
+        Ipv4PacketMut::from_exact(&mut self.buffer[..total], header)
+            .map_err(|_| Ipv4PacketBuildError::InvalidRepresentation)
     }
 }

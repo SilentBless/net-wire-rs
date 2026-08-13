@@ -50,6 +50,6 @@ fn ipv4_dispatch_matches_ether_type_and_writes_through() {
 
     let mut bytes = frame(0x0800, &BASIC[..20]);
     let mut ethernet = EthernetFrameViewMut::parse_exact_mut(&mut bytes).unwrap();
-    ethernet.ipv4_mut().unwrap().unwrap().set_ttl(1);
+    ethernet.ipv4_mut().unwrap().unwrap().set_ttl(1).unwrap();
     assert_eq!(ethernet.payload()[8], 1);
 }

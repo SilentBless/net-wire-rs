@@ -146,21 +146,20 @@ fn mutable_fields_and_checksum_boundary() {
             Ipv4Address::new([198, 51, 100, 2])
         )
     );
-    p.set_dscp_ecn(1);
-    p.set_identification(2);
-    p.set_flags_fragment_offset(3);
-    p.set_ttl(4);
-    p.set_protocol(Ipv4Protocol::new(5));
-    p.set_source(Ipv4Address::new([1, 1, 1, 1]));
-    p.set_destination(Ipv4Address::new([2, 2, 2, 2]));
+    p.set_dscp_ecn(1).unwrap();
+    p.set_identification(2).unwrap();
+    p.set_flags_fragment_offset(3).unwrap();
+    p.set_ttl(4).unwrap();
+    p.set_protocol(Ipv4Protocol::new(5)).unwrap();
+    p.set_source(Ipv4Address::new([1, 1, 1, 1])).unwrap();
+    p.set_destination(Ipv4Address::new([2, 2, 2, 2])).unwrap();
     p.options_mut()[0] = 9;
     assert!(!p.checksum_is_valid());
-    p.update_header_checksum();
+    p.update_header_checksum().unwrap();
     assert!(p.checksum_is_valid());
     let c = p.header_checksum();
     p.payload_mut()[0] = 0;
     assert!(p.checksum_is_valid());
-    p.set_header_checksum(c);
-    p.as_bytes_mut()[1] = 1;
+    p.set_header_checksum(c).unwrap();
     assert_eq!(p.options(), &[9, 2, 3, 4]);
 }
