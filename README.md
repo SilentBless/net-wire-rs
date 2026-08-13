@@ -19,7 +19,7 @@ It targets **Rust 1.91** and **edition 2024**.
 
 `net-wire` uses our [`wire-repr`](https://github.com/SilentBless/wire-repr-rs) library to generate safe byte-backed views and caller-buffer builders from explicit wire layouts. The generated code remains ordinary direct Rust: there are no runtime schemas, reflection, allocation, dynamic dispatch, or `unsafe` byte reinterpretation.
 
-The dependency is optional and protocol-scoped. It is enabled by the `arp` and `ethernet` features; builds without either do not include `wire-repr` in the target graph. Other protocol owners will migrate incrementally only where the generated representation preserves their existing wire and code-generation contracts.
+The dependency is optional and protocol-scoped. It is enabled by the `arp`, `ethernet`, and `ipv4` features; builds without any of those features do not include `wire-repr` in the target graph. Other protocol owners will migrate incrementally only where the generated representation preserves their existing wire and code-generation contracts.
 
 ## 🚫 What it is not
 

@@ -79,7 +79,7 @@ Do not put a project's local extension parser into `net-wire` merely because it 
 
 ## ⚙️ Features and dependencies
 
-This is one package and one crate, using Rust 1.91 and edition 2024. It has `#![no_std]`, `#![deny(missing_docs)]`, `unsafe_code = deny`, an empty default feature set, no production allocation, and no production I/O. `wire-repr` is an optional protocol-scoped production dependency currently used by ARP and Ethernet.
+This is one package and one crate, using Rust 1.91 and edition 2024. It has `#![no_std]`, `#![deny(missing_docs)]`, `unsafe_code = deny`, an empty default feature set, no production allocation, and no production I/O. `wire-repr` is an optional protocol-scoped production dependency currently used by ARP, Ethernet, and IPv4.
 
 Protocol features own their modules: Ethernet, ARP, IPv4/IPv6, ICMPv4/ICMPv6, UDP/TCP, KCP, TLS, HTTP/1, HTTP/2 (including HPACK), QUIC, QPACK, and HTTP/3. `http3` enables `quic` and `qpack`. Cross-layer adapters use conjunction gates; they must not create transitive upper-layer coupling.
 

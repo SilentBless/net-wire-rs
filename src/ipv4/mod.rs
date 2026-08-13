@@ -8,6 +8,7 @@ mod builder;
 mod dispatch;
 #[cfg(feature = "ethernet")]
 mod ethernet;
+mod layout;
 mod packet;
 mod protocol;
 
