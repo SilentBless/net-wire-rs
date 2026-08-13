@@ -10,6 +10,6 @@ wire_repr::wire_repr! {
         /// The Ethernet protocol type.
         field ether_type: BeU16 as super::types::EtherType;
         /// Every caller-supplied byte after the Ethernet header.
-        field payload: remainder;
+        field payload: bytes(current_pos..buf_end);
     }
 }

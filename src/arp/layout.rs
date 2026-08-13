@@ -14,12 +14,12 @@ wire_repr::wire_repr! {
         /// The requested or performed operation.
         field operation: BeU16 as super::types::ArpOperation;
         /// The sender hardware address bytes.
-        field sender_hardware_address: region(hardware_address_length);
+        field sender_hardware_address: bytes(current_pos..current_pos + hardware_address_length);
         /// The sender protocol address bytes.
-        field sender_protocol_address: region(protocol_address_length);
+        field sender_protocol_address: bytes(current_pos..current_pos + protocol_address_length);
         /// The target hardware address bytes.
-        field target_hardware_address: region(hardware_address_length);
+        field target_hardware_address: bytes(current_pos..current_pos + hardware_address_length);
         /// The target protocol address bytes.
-        field target_protocol_address: region(protocol_address_length);
+        field target_protocol_address: bytes(current_pos..current_pos + protocol_address_length);
     }
 }

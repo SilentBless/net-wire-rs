@@ -77,10 +77,10 @@ fn builder_accepts_zero_lengths_and_rejects_invalid_requests_atomically() {
         builder()
             .target_hardware_address(&[6, 7])
             .build_into(&mut output),
-        Err(ArpPacketWriteError::ConflictingRegionLengths {
+        Err(ArpPacketWriteError::ConflictingRangeSources {
             source_position: 3,
-            first_region_position: 6,
-            conflicting_region_position: 8,
+            first_range_position: 6,
+            conflicting_range_position: 8,
             expected: 3,
             actual: 2,
         })
@@ -93,10 +93,10 @@ fn builder_accepts_zero_lengths_and_rejects_invalid_requests_atomically() {
         builder()
             .target_protocol_address(&[9])
             .build_into(&mut output),
-        Err(ArpPacketWriteError::ConflictingRegionLengths {
+        Err(ArpPacketWriteError::ConflictingRangeSources {
             source_position: 4,
-            first_region_position: 7,
-            conflicting_region_position: 9,
+            first_range_position: 7,
+            conflicting_range_position: 9,
             expected: 2,
             actual: 1,
         })
@@ -111,10 +111,10 @@ fn builder_accepts_zero_lengths_and_rejects_invalid_requests_atomically() {
             .sender_hardware_address(&long)
             .target_hardware_address(&long)
             .build_into(&mut output),
-        Err(ArpPacketWriteError::InvalidRegionLength {
+        Err(ArpPacketWriteError::InvalidRangeSource {
             position: 6,
             source_position: 3,
-            length: 256,
+            value: 256,
         })
     ));
     assert_eq!(output, before);
@@ -126,10 +126,10 @@ fn builder_accepts_zero_lengths_and_rejects_invalid_requests_atomically() {
             .sender_protocol_address(&long)
             .target_protocol_address(&long)
             .build_into(&mut output),
-        Err(ArpPacketWriteError::InvalidRegionLength {
+        Err(ArpPacketWriteError::InvalidRangeSource {
             position: 7,
             source_position: 4,
-            length: 256,
+            value: 256,
         })
     ));
     assert_eq!(output, before);
