@@ -2,8 +2,10 @@
 
 use core::fmt;
 
-use super::message::{HEADER_LENGTH, Icmpv4MessageMut};
+use super::layout::{HEADER_LENGTH, Icmpv4MessageLayoutBuilder, Icmpv4MessageLayoutWriteError};
+use super::message::{Icmpv4MessageMut, checksum_sum};
 use super::types::Icmpv4Type;
+use crate::internet_checksum;
 
 /// Failure to construct an ICMPv4 message in caller-provided storage.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -21,6 +23,17 @@ pub enum Icmpv4MessageBuildError {
         /// Available bytes.
         available: usize,
     },
+    /// A field value could not be encoded at its required wire width.
+    InvalidFieldEncoding {
+        /// The field whose encoding was invalid.
+        field: &'static str,
+        /// The required fixed width.
+        expected: usize,
+        /// The encoded width that was produced.
+        actual: usize,
+    },
+    /// The validated message could not be represented by the ICMPv4 layout.
+    InvalidRepresentation,
 }
 
 impl fmt::Display for Icmpv4MessageBuildError {
@@ -38,6 +51,45 @@ impl fmt::Display for Icmpv4MessageBuildError {
                 formatter,
                 "ICMPv4 buffer is too short: need {required} bytes, have {available}"
             ),
+            Self::InvalidFieldEncoding {
+                field,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "ICMPv4 field {field} encoding: expected {expected} bytes, got {actual}"
+            ),
+            Self::InvalidRepresentation => {
+                formatter.write_str("validated ICMPv4 message could not be represented")
+            }
+        }
+    }
+}
+impl core::error::Error for Icmpv4MessageBuildError {}
+
+fn representation_error(error: Icmpv4MessageLayoutWriteError) -> Icmpv4MessageBuildError {
+    match error {
+        Icmpv4MessageLayoutWriteError::FieldMessageType(error)
+        | Icmpv4MessageLayoutWriteError::FieldCode(error)
+        | Icmpv4MessageLayoutWriteError::FieldChecksum(error) => match error {},
+        Icmpv4MessageLayoutWriteError::InvalidPlanLength {
+            field,
+            expected,
+            actual,
+        } => Icmpv4MessageBuildError::InvalidFieldEncoding {
+            field,
+            expected,
+            actual,
+        },
+        Icmpv4MessageLayoutWriteError::MissingContext { .. }
+        | Icmpv4MessageLayoutWriteError::InvalidCodecWidth { .. }
+        | Icmpv4MessageLayoutWriteError::InvalidRangeSource { .. }
+        | Icmpv4MessageLayoutWriteError::ConflictingRangeSources { .. }
+        | Icmpv4MessageLayoutWriteError::InvalidPrefixPlanLength { .. }
+        | Icmpv4MessageLayoutWriteError::InvalidLayoutExtent { .. }
+        | Icmpv4MessageLayoutWriteError::OutputTooShort { .. }
+        | Icmpv4MessageLayoutWriteError::MissingField { .. } => {
+            Icmpv4MessageBuildError::InvalidRepresentation
         }
     }
 }
@@ -88,13 +140,19 @@ impl<'a> Icmpv4MessageBuilder<'a> {
                 available: self.buffer.len(),
             });
         }
-        let bytes = &mut self.buffer[..length];
-        bytes[0] = message_type.raw();
-        bytes[1] = code;
-        bytes[2] = 0;
-        bytes[3] = 0;
-        let mut result = Icmpv4MessageMut::from_validated(bytes);
-        result.update_checksum();
-        Ok(result)
+        let checksum = internet_checksum::checksum(checksum_sum(
+            message_type,
+            code,
+            0,
+            &self.buffer[HEADER_LENGTH..length],
+        ));
+        let (layout, _) = Icmpv4MessageLayoutBuilder::new()
+            .message_type(message_type)
+            .code(code)
+            .checksum(checksum)
+            .body_existing(self.body_length)
+            .build_into(&mut self.buffer[..length])
+            .map_err(representation_error)?;
+        Ok(Icmpv4MessageMut::from_layout(layout))
     }
 }

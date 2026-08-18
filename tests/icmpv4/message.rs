@@ -1,5 +1,5 @@
 use net_wire::ParseError;
-use net_wire::icmpv4::{Icmpv4Message, Icmpv4MessageMut, Icmpv4Type};
+use net_wire::icmpv4::{Icmpv4Message, Icmpv4MessageMut, Icmpv4MessageMutationError, Icmpv4Type};
 
 fn checksum(bytes: &[u8]) -> u16 {
     let mut sum = 0u32;
@@ -41,17 +41,19 @@ fn parsing_is_checksum_permissive_and_has_a_known_vector() {
 }
 
 #[test]
-fn mutable_setters_and_raw_bytes_leave_checksum_stale_until_updated() {
+fn mutable_setters_and_body_bytes_leave_checksum_stale_until_updated() {
     let mut bytes = [8, 0, 0x4d, 0xfc, 0, 1, 0, 2, 0xaa];
     let mut message = Icmpv4MessageMut::parse(&mut bytes).unwrap();
-    message.set_message_type(Icmpv4Type::ECHO_REPLY);
-    message.set_code(9);
-    message.set_checksum(0xbeef);
+    let result: Result<(), Icmpv4MessageMutationError> =
+        message.set_message_type(Icmpv4Type::ECHO_REPLY);
+    result.unwrap();
+    message.set_code(9).unwrap();
+    message.set_checksum(0xbeef).unwrap();
     message.body_mut()[0] = 7;
-    message.as_bytes_mut()[8] = 3;
+    message.body_mut()[4] = 3;
     assert_eq!(message.as_bytes(), &[0, 9, 0xbe, 0xef, 7, 1, 0, 2, 3]);
     assert!(!message.checksum_is_valid());
-    message.update_checksum();
+    message.update_checksum().unwrap();
     assert_eq!(message.checksum(), checksum(&[0, 9, 0, 0, 7, 1, 0, 2, 3]));
     assert!(message.checksum_is_valid());
 }

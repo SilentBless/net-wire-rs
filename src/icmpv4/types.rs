@@ -21,3 +21,15 @@ impl Icmpv4Type {
         self.0
     }
 }
+
+impl From<u8> for Icmpv4Type {
+    fn from(value: u8) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<Icmpv4Type> for u8 {
+    fn from(value: Icmpv4Type) -> Self {
+        value.raw()
+    }
+}

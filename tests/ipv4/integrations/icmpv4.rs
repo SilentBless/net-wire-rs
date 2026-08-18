@@ -49,6 +49,6 @@ fn dispatches_icmpv4_only_when_complete_and_atomic() {
 fn mutable_icmpv4_dispatch_writes_through() {
     let mut bytes = packet(1, 0, &[8, 0, 0, 0]);
     let mut ipv4 = Ipv4PacketMut::parse(&mut bytes).unwrap();
-    ipv4.icmpv4_mut().unwrap().unwrap().set_code(7);
+    ipv4.icmpv4_mut().unwrap().unwrap().set_code(7).unwrap();
     assert_eq!(ipv4.payload()[1], 7);
 }
