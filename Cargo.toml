@@ -35,7 +35,7 @@ qpack = []
 http3 = ["quic", "qpack"]
 
 [dependencies]
-wire-repr = { version = "0.3.0", default-features = false }
+wire-repr = { version = "0.4.0", default-features = false }
 
 [dev-dependencies]
 socket2 = { version = "0.6.5", features = ["all"] }

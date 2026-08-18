@@ -96,7 +96,8 @@ fn representation_error(error: Ipv4PacketLayoutWriteError) -> Ipv4PacketBuildErr
             expected,
             actual,
         },
-        Ipv4PacketLayoutWriteError::InvalidCodecWidth { .. }
+        Ipv4PacketLayoutWriteError::MissingContext { .. }
+        | Ipv4PacketLayoutWriteError::InvalidCodecWidth { .. }
         | Ipv4PacketLayoutWriteError::InvalidRangeSource { .. }
         | Ipv4PacketLayoutWriteError::ConflictingRangeSources { .. }
         | Ipv4PacketLayoutWriteError::InvalidPrefixPlanLength { .. }
