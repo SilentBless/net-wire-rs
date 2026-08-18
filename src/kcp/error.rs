@@ -1,4 +1,4 @@
-//! KCP segment construction and parsing errors.
+//! KCP segment construction, mutation, and parsing errors.
 
 use core::fmt;
 
@@ -24,6 +24,17 @@ pub enum KcpSegmentBuildError {
         /// Bytes available in the destination buffer.
         available: usize,
     },
+    /// A field value could not be encoded at its required wire width.
+    InvalidFieldEncoding {
+        /// Field whose plan was invalid.
+        field: &'static str,
+        /// Required width.
+        expected: usize,
+        /// Actual planned width.
+        actual: usize,
+    },
+    /// Validated builder inputs could not be represented by the generated layout.
+    InvalidRepresentation,
 }
 
 impl fmt::Display for KcpSegmentBuildError {
@@ -46,11 +57,50 @@ impl fmt::Display for KcpSegmentBuildError {
                 f,
                 "KCP buffer is too short: need {required} bytes, have {available}"
             ),
+            Self::InvalidFieldEncoding {
+                field,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "KCP field {field} encoding: expected {expected} bytes, got {actual}"
+            ),
+            Self::InvalidRepresentation => {
+                f.write_str("validated KCP segment could not be represented")
+            }
         }
     }
 }
-
 impl core::error::Error for KcpSegmentBuildError {}
+
+/// Failure to mutate a KCP segment field.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KcpSegmentMutationError {
+    /// A field value could not be encoded at its required wire width.
+    InvalidFieldEncoding {
+        /// Field whose plan was invalid.
+        field: &'static str,
+        /// Required width.
+        expected: usize,
+        /// Actual planned width.
+        actual: usize,
+    },
+}
+impl fmt::Display for KcpSegmentMutationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidFieldEncoding {
+                field,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "KCP field {field} encoding: expected {expected} bytes, got {actual}"
+            ),
+        }
+    }
+}
+impl core::error::Error for KcpSegmentMutationError {}
 
 /// Failure to parse one KCP segment.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -82,7 +132,6 @@ pub enum KcpSegmentParseError {
         available: usize,
     },
 }
-
 impl fmt::Display for KcpSegmentParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -114,7 +163,6 @@ impl fmt::Display for KcpSegmentParseError {
         }
     }
 }
-
 impl core::error::Error for KcpSegmentParseError {}
 
 /// Failure to validate a complete concatenated KCP segment sequence.
@@ -130,21 +178,17 @@ pub enum KcpSegmentsParseError {
         error: KcpSegmentParseError,
     },
 }
-
 impl fmt::Display for KcpSegmentsParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::EmptySequence => f.write_str("KCP segment sequence is empty"),
-            Self::Segment { offset, error } => {
-                write!(
-                    f,
-                    "KCP segment at offset {offset} cannot be parsed: {error}"
-                )
-            }
+            Self::Segment { offset, error } => write!(
+                f,
+                "KCP segment at offset {offset} cannot be parsed: {error}"
+            ),
         }
     }
 }
-
 impl core::error::Error for KcpSegmentsParseError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {

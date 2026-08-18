@@ -77,13 +77,19 @@ fn mutable_segment_updates_fields_and_payload_without_changing_boundary() {
     ];
     let (mut segment, suffix) = KcpSegmentMut::parse(&mut bytes).unwrap();
     assert_eq!(suffix, [0xef, 0xca]);
-    segment.set_conversation_id(KcpConversationId::new(1));
-    segment.set_command(KcpCommand::ACK);
-    segment.set_fragment(KcpFragment::new(0));
-    segment.set_window_size(2);
-    segment.set_timestamp(KcpTimestamp::new(3));
-    segment.set_sequence_number(KcpSequenceNumber::new(4));
-    segment.set_unacknowledged(KcpUnacknowledged::new(5));
+    segment
+        .set_conversation_id(KcpConversationId::new(1))
+        .unwrap();
+    segment.set_command(KcpCommand::ACK).unwrap();
+    segment.set_fragment(KcpFragment::new(0)).unwrap();
+    segment.set_window_size(2).unwrap();
+    segment.set_timestamp(KcpTimestamp::new(3)).unwrap();
+    segment
+        .set_sequence_number(KcpSequenceNumber::new(4))
+        .unwrap();
+    segment
+        .set_unacknowledged(KcpUnacknowledged::new(5))
+        .unwrap();
     segment.payload_mut().copy_from_slice(&[0xbe, 0xef, 0xca]);
     assert_eq!(segment.payload_length(), 3);
     assert_eq!(segment.payload(), [0xbe, 0xef, 0xca]);

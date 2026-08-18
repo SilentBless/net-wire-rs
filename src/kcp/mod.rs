@@ -6,6 +6,7 @@
 
 mod builder;
 mod error;
+mod layout;
 mod segment;
 mod segments;
 mod types;
@@ -13,8 +14,11 @@ mod types;
 mod udp;
 
 pub use builder::KcpSegmentBuilder;
-pub use error::{KcpSegmentBuildError, KcpSegmentParseError, KcpSegmentsParseError};
-pub use segment::{KCP_SEGMENT_HEADER_LEN, KcpSegment, KcpSegmentMut};
+pub use error::{
+    KcpSegmentBuildError, KcpSegmentMutationError, KcpSegmentParseError, KcpSegmentsParseError,
+};
+pub use layout::KCP_SEGMENT_HEADER_LEN;
+pub use segment::{KcpSegment, KcpSegmentMut};
 pub use segments::{KcpSegmentIter, KcpSegments};
 pub use types::{
     KcpCommand, KcpConversationId, KcpFragment, KcpKnownCommand, KcpSequenceNumber, KcpTimestamp,

@@ -1,10 +1,43 @@
 //! KCP caller-buffer segment construction.
 
 use super::error::KcpSegmentBuildError;
-use super::segment::{KCP_SEGMENT_HEADER_LEN, KcpSegmentMut};
+use super::layout::{KCP_SEGMENT_HEADER_LEN, KcpSegmentLayoutBuilder, KcpSegmentLayoutWriteError};
+use super::segment::KcpSegmentMut;
 use super::types::{
     KcpCommand, KcpConversationId, KcpFragment, KcpSequenceNumber, KcpTimestamp, KcpUnacknowledged,
 };
+
+fn representation_error(error: KcpSegmentLayoutWriteError) -> KcpSegmentBuildError {
+    match error {
+        KcpSegmentLayoutWriteError::FieldConversationId(error)
+        | KcpSegmentLayoutWriteError::FieldCommand(error)
+        | KcpSegmentLayoutWriteError::FieldFragment(error)
+        | KcpSegmentLayoutWriteError::FieldWindowSize(error)
+        | KcpSegmentLayoutWriteError::FieldTimestamp(error)
+        | KcpSegmentLayoutWriteError::FieldSequenceNumber(error)
+        | KcpSegmentLayoutWriteError::FieldUnacknowledged(error)
+        | KcpSegmentLayoutWriteError::FieldPayloadLength(error) => match error {},
+        KcpSegmentLayoutWriteError::InvalidPlanLength {
+            field,
+            expected,
+            actual,
+        } => KcpSegmentBuildError::InvalidFieldEncoding {
+            field,
+            expected,
+            actual,
+        },
+        KcpSegmentLayoutWriteError::MissingContext { .. }
+        | KcpSegmentLayoutWriteError::InvalidCodecWidth { .. }
+        | KcpSegmentLayoutWriteError::InvalidRangeSource { .. }
+        | KcpSegmentLayoutWriteError::ConflictingRangeSources { .. }
+        | KcpSegmentLayoutWriteError::InvalidPrefixPlanLength { .. }
+        | KcpSegmentLayoutWriteError::InvalidLayoutExtent { .. }
+        | KcpSegmentLayoutWriteError::OutputTooShort { .. }
+        | KcpSegmentLayoutWriteError::MissingField { .. } => {
+            KcpSegmentBuildError::InvalidRepresentation
+        }
+    }
+}
 
 /// Builds one complete KCP segment in caller-owned storage.
 pub struct KcpSegmentBuilder<'a, 'b> {
@@ -18,7 +51,6 @@ pub struct KcpSegmentBuilder<'a, 'b> {
     sequence_number: KcpSequenceNumber,
     unacknowledged: KcpUnacknowledged,
 }
-
 impl<'a, 'b> KcpSegmentBuilder<'a, 'b> {
     /// Starts a builder with the required fields and a copied payload.
     pub fn new(
@@ -39,37 +71,31 @@ impl<'a, 'b> KcpSegmentBuilder<'a, 'b> {
             unacknowledged: KcpUnacknowledged::new(0),
         }
     }
-
     /// Supplies the fragment number; it defaults to zero.
     pub fn fragment(mut self, value: KcpFragment) -> Self {
         self.fragment = value;
         self
     }
-
     /// Supplies the advertised receive window; it defaults to zero.
     pub fn window_size(mut self, value: u16) -> Self {
         self.window_size = value;
         self
     }
-
     /// Supplies the timestamp; it defaults to zero.
     pub fn timestamp(mut self, value: KcpTimestamp) -> Self {
         self.timestamp = value;
         self
     }
-
     /// Supplies the sequence number; it defaults to zero.
     pub fn sequence_number(mut self, value: KcpSequenceNumber) -> Self {
         self.sequence_number = value;
         self
     }
-
     /// Supplies the unacknowledged marker; it defaults to zero.
     pub fn unacknowledged(mut self, value: KcpUnacknowledged) -> Self {
         self.unacknowledged = value;
         self
     }
-
     /// Validates all boundaries, then writes one complete KCP segment.
     pub fn build(self) -> Result<KcpSegmentMut<'a>, KcpSegmentBuildError> {
         let payload_length = self.payload.len();
@@ -90,17 +116,18 @@ impl<'a, 'b> KcpSegmentBuilder<'a, 'b> {
                 available: self.destination.len(),
             });
         }
-
-        let bytes = &mut self.destination[..segment_length];
-        bytes[0..4].copy_from_slice(&self.conversation_id.raw().to_le_bytes());
-        bytes[4] = self.command.raw();
-        bytes[5] = self.fragment.raw();
-        bytes[6..8].copy_from_slice(&self.window_size.to_le_bytes());
-        bytes[8..12].copy_from_slice(&self.timestamp.raw().to_le_bytes());
-        bytes[12..16].copy_from_slice(&self.sequence_number.raw().to_le_bytes());
-        bytes[16..20].copy_from_slice(&self.unacknowledged.raw().to_le_bytes());
-        bytes[20..24].copy_from_slice(&encoded_payload_length.to_le_bytes());
-        bytes[KCP_SEGMENT_HEADER_LEN..].copy_from_slice(self.payload);
-        Ok(KcpSegmentMut::from_validated(bytes))
+        let (layout, _) = KcpSegmentLayoutBuilder::new()
+            .conversation_id(self.conversation_id)
+            .command(self.command)
+            .fragment(self.fragment)
+            .window_size(self.window_size)
+            .timestamp(self.timestamp)
+            .sequence_number(self.sequence_number)
+            .unacknowledged(self.unacknowledged)
+            .payload_length(encoded_payload_length)
+            .payload(self.payload)
+            .build_into(&mut self.destination[..segment_length])
+            .map_err(representation_error)?;
+        Ok(KcpSegmentMut::from_layout(layout))
     }
 }

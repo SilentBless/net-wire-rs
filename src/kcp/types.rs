@@ -5,6 +5,18 @@
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct KcpConversationId(u32);
 
+impl From<u32> for KcpConversationId {
+    fn from(value: u32) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<KcpConversationId> for u32 {
+    fn from(value: KcpConversationId) -> Self {
+        value.raw()
+    }
+}
+
 impl KcpConversationId {
     /// Creates a conversation identifier from its raw wire value.
     pub const fn new(raw: u32) -> Self {
@@ -21,6 +33,18 @@ impl KcpConversationId {
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct KcpCommand(u8);
+
+impl From<u8> for KcpCommand {
+    fn from(value: u8) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<KcpCommand> for u8 {
+    fn from(value: KcpCommand) -> Self {
+        value.raw()
+    }
+}
 
 impl KcpCommand {
     /// Data segment command (`81`).
@@ -94,6 +118,18 @@ impl KcpKnownCommand {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct KcpFragment(u8);
 
+impl From<u8> for KcpFragment {
+    fn from(value: u8) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<KcpFragment> for u8 {
+    fn from(value: KcpFragment) -> Self {
+        value.raw()
+    }
+}
+
 impl KcpFragment {
     /// Creates a fragment number from its raw wire value.
     pub const fn new(raw: u8) -> Self {
@@ -115,6 +151,18 @@ impl KcpFragment {
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct KcpTimestamp(u32);
+
+impl From<u32> for KcpTimestamp {
+    fn from(value: u32) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<KcpTimestamp> for u32 {
+    fn from(value: KcpTimestamp) -> Self {
+        value.raw()
+    }
+}
 
 impl KcpTimestamp {
     /// Creates a timestamp from its raw wire value.
@@ -156,6 +204,18 @@ impl KcpTimestamp {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct KcpSequenceNumber(u32);
 
+impl From<u32> for KcpSequenceNumber {
+    fn from(value: u32) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<KcpSequenceNumber> for u32 {
+    fn from(value: KcpSequenceNumber) -> Self {
+        value.raw()
+    }
+}
+
 impl KcpSequenceNumber {
     /// Creates a sequence number from its raw wire value.
     pub const fn new(raw: u32) -> Self {
@@ -195,6 +255,18 @@ impl KcpSequenceNumber {
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct KcpUnacknowledged(u32);
+
+impl From<u32> for KcpUnacknowledged {
+    fn from(value: u32) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<KcpUnacknowledged> for u32 {
+    fn from(value: KcpUnacknowledged) -> Self {
+        value.raw()
+    }
+}
 
 impl KcpUnacknowledged {
     /// Creates an unacknowledged marker from its raw wire value.
