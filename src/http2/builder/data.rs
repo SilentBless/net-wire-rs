@@ -3,10 +3,11 @@
 use super::super::data::Http2Data;
 use super::super::error::Http2BuildError;
 use super::super::frame::Http2Frame;
+use super::super::frame_layout::MAXIMUM_PAYLOAD;
 use super::super::headers::{Http2Continuation, Http2Headers, Http2PushPromise};
 use super::super::priority::Http2Priority;
 use super::super::types::{Http2FrameType, Http2StreamId};
-use super::raw::{FRAME_HEADER_LENGTH, MAXIMUM_PAYLOAD, write_frame_envelope};
+use super::raw::write_frame_envelope;
 
 const DATA_PADDED: u8 = 0x08;
 const HEADERS_PRIORITY: u8 = 0x20;
@@ -69,7 +70,7 @@ impl<'a, 'b> Http2DataBuilder<'a, 'b> {
                 maximum: maximum_payload.min(MAXIMUM_PAYLOAD),
                 actual: self.data.len(),
             })?;
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             payload_length,
             Http2FrameType::DATA,
@@ -77,16 +78,17 @@ impl<'a, 'b> Http2DataBuilder<'a, 'b> {
             self.stream_id,
             maximum_payload,
         )?;
-        let mut offset = FRAME_HEADER_LENGTH;
+        let payload = layout.payload_mut();
+        let mut offset = 0;
         if let Some(padding_length) = padding_length {
-            bytes[offset] = padding_length;
+            payload[offset] = padding_length;
             offset += 1;
         }
         let data_end = offset + self.data.len();
-        bytes[offset..data_end].copy_from_slice(self.data);
-        bytes[data_end..].fill(0);
+        payload[offset..data_end].copy_from_slice(self.data);
+        payload[data_end..].fill(0);
         Ok(Http2Data::from_validated(
-            Http2Frame::from_validated(bytes),
+            Http2Frame::from_layout(layout.into_view()),
             padding_length,
         ))
     }
@@ -160,7 +162,7 @@ impl<'a, 'b> Http2HeadersBuilder<'a, 'b> {
                 maximum: maximum_payload.min(MAXIMUM_PAYLOAD),
                 actual: self.field_block_fragment.len(),
             })?;
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             payload_length,
             Http2FrameType::HEADERS,
@@ -168,21 +170,22 @@ impl<'a, 'b> Http2HeadersBuilder<'a, 'b> {
             self.stream_id,
             maximum_payload,
         )?;
-        let mut offset = FRAME_HEADER_LENGTH;
+        let payload = layout.payload_mut();
+        let mut offset = 0;
         if let Some(padding_length) = self.padding_length {
-            bytes[offset] = padding_length;
+            payload[offset] = padding_length;
             offset += 1;
         }
         if let Some(priority) = self.priority {
-            bytes[offset..offset + 4].copy_from_slice(&priority.raw_dependency().to_be_bytes());
-            bytes[offset + 4] = priority.weight();
+            payload[offset..offset + 4].copy_from_slice(&priority.raw_dependency().to_be_bytes());
+            payload[offset + 4] = priority.weight();
             offset += 5;
         }
         let fragment_end = offset + self.field_block_fragment.len();
-        bytes[offset..fragment_end].copy_from_slice(self.field_block_fragment);
-        bytes[fragment_end..].fill(0);
+        payload[offset..fragment_end].copy_from_slice(self.field_block_fragment);
+        payload[fragment_end..].fill(0);
         Ok(Http2Headers::from_validated(
-            Http2Frame::from_validated(bytes),
+            Http2Frame::from_layout(layout.into_view()),
             self.padding_length,
             self.priority,
         ))
@@ -255,7 +258,7 @@ impl<'a, 'b> Http2PushPromiseBuilder<'a, 'b> {
                 maximum: maximum_payload.min(MAXIMUM_PAYLOAD),
                 actual: self.field_block_fragment.len(),
             })?;
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             payload_length,
             Http2FrameType::PUSH_PROMISE,
@@ -263,18 +266,19 @@ impl<'a, 'b> Http2PushPromiseBuilder<'a, 'b> {
             self.stream_id,
             maximum_payload,
         )?;
-        let mut offset = FRAME_HEADER_LENGTH;
+        let payload = layout.payload_mut();
+        let mut offset = 0;
         if let Some(padding_length) = self.padding_length {
-            bytes[offset] = padding_length;
+            payload[offset] = padding_length;
             offset += 1;
         }
-        bytes[offset..offset + 4].copy_from_slice(&self.promised_stream_id.raw().to_be_bytes());
+        payload[offset..offset + 4].copy_from_slice(&self.promised_stream_id.raw().to_be_bytes());
         offset += 4;
         let fragment_end = offset + self.field_block_fragment.len();
-        bytes[offset..fragment_end].copy_from_slice(self.field_block_fragment);
-        bytes[fragment_end..].fill(0);
+        payload[offset..fragment_end].copy_from_slice(self.field_block_fragment);
+        payload[fragment_end..].fill(0);
         Ok(Http2PushPromise::from_validated(
-            Http2Frame::from_validated(bytes),
+            Http2Frame::from_layout(layout.into_view()),
             self.padding_length,
             self.promised_stream_id,
         ))
@@ -316,7 +320,7 @@ impl<'a, 'b> Http2ContinuationBuilder<'a, 'b> {
         maximum_payload: usize,
     ) -> Result<Http2Continuation<'a>, Http2BuildError> {
         validate_stream_id(self.stream_id)?;
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             self.field_block_fragment.len(),
             Http2FrameType::CONTINUATION,
@@ -324,10 +328,11 @@ impl<'a, 'b> Http2ContinuationBuilder<'a, 'b> {
             self.stream_id,
             maximum_payload,
         )?;
-        bytes[FRAME_HEADER_LENGTH..].copy_from_slice(self.field_block_fragment);
-        Ok(Http2Continuation::from_validated(
-            Http2Frame::from_validated(bytes),
-        ))
+        let payload = layout.payload_mut();
+        payload[..].copy_from_slice(self.field_block_fragment);
+        Ok(Http2Continuation::from_validated(Http2Frame::from_layout(
+            layout.into_view(),
+        )))
     }
 }
 

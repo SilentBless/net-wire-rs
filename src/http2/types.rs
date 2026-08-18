@@ -7,6 +7,18 @@ use super::error::Http2StreamIdError;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Http2FrameType(u8);
 
+impl From<u8> for Http2FrameType {
+    fn from(raw: u8) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl From<Http2FrameType> for u8 {
+    fn from(frame_type: Http2FrameType) -> Self {
+        frame_type.raw()
+    }
+}
+
 impl Http2FrameType {
     /// DATA (`0x0`).
     pub const DATA: Self = Self(0x0);
@@ -44,6 +56,18 @@ impl Http2FrameType {
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Http2StreamId(u32);
+
+impl From<u32> for Http2StreamId {
+    fn from(raw: u32) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl From<Http2StreamId> for u32 {
+    fn from(stream_id: Http2StreamId) -> Self {
+        stream_id.raw()
+    }
+}
 
 impl Http2StreamId {
     /// Creates an identifier from its raw encoded field, including the reserved bit.

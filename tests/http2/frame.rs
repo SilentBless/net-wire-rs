@@ -28,6 +28,40 @@ fn client_preface_is_exact_and_bounded() {
 }
 
 #[test]
+fn raw_frame_immutable_and_mutable_header_truncation_match() {
+    for available in 0..9 {
+        let bytes = [0_u8; 9];
+        let expected = Http2ParseError::Incomplete {
+            required: 9,
+            available,
+        };
+        assert_eq!(
+            Http2Frame::parse(&bytes[..available], 0).unwrap_err(),
+            expected
+        );
+
+        let mut mutable = bytes;
+        assert_eq!(
+            Http2FrameMut::parse(&mut mutable[..available], 0).unwrap_err(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn raw_frame_accepts_an_empty_payload_at_the_exact_header_boundary() {
+    let wire = [0, 0, 0, 0xfe, 0xa5, 0x80, 0, 0, 7];
+    let frame = Http2Frame::parse(&wire, 0).unwrap();
+    assert_eq!(frame.as_bytes(), wire);
+    assert_eq!(frame.payload(), []);
+
+    let mut mutable = wire;
+    let frame = Http2FrameMut::parse(&mut mutable, 0).unwrap();
+    assert_eq!(frame.as_bytes(), wire);
+    assert_eq!(frame.payload(), []);
+}
+
+#[test]
 fn raw_frame_distinguishes_incomplete_header_and_payload() {
     assert_eq!(
         Http2Frame::parse(&[0, 0, 0, 0, 0, 0, 0, 0], 10),
@@ -86,17 +120,20 @@ fn mutable_frame_has_the_same_bound_and_mutable_payload() {
             actual: 2,
         })
     );
-    let mut frame = Http2FrameMut::parse(&mut wire, 2).unwrap();
-    assert_eq!(
-        frame.as_bytes(),
-        &[0, 0, 2, 0xfe, 0xa5, 0x80, 0x00, 0x00, 0x07, 0xde, 0xad]
-    );
-    frame.payload_mut()[1] = 0xbe;
-    assert_eq!(frame.payload(), [0xde, 0xbe]);
-    assert_eq!(
-        frame.as_bytes(),
-        &[0, 0, 2, 0xfe, 0xa5, 0x80, 0x00, 0x00, 0x07, 0xde, 0xbe]
-    );
+    {
+        let mut frame = Http2FrameMut::parse(&mut wire, 2).unwrap();
+        assert_eq!(
+            frame.as_bytes(),
+            &[0, 0, 2, 0xfe, 0xa5, 0x80, 0x00, 0x00, 0x07, 0xde, 0xad]
+        );
+        frame.payload_mut()[1] = 0xbe;
+        assert_eq!(frame.payload(), [0xde, 0xbe]);
+        assert_eq!(
+            frame.as_bytes(),
+            &[0, 0, 2, 0xfe, 0xa5, 0x80, 0x00, 0x00, 0x07, 0xde, 0xbe]
+        );
+    }
+    assert_eq!(wire[11], 0xfa);
 }
 
 #[test]

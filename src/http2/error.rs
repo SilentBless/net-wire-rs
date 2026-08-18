@@ -28,6 +28,8 @@ pub enum Http2ParseError {
         /// Declared payload length.
         actual: usize,
     },
+    /// The generated physical representation rejected an otherwise unreachable layout state.
+    InvalidRepresentation,
     /// A typed frame view was requested for a different raw frame type.
     WrongFrameType {
         /// Required frame type.
@@ -105,6 +107,9 @@ impl fmt::Display for Http2ParseError {
                 f,
                 "HTTP/2 frame payload is too large: maximum {maximum}, got {actual}"
             ),
+            Self::InvalidRepresentation => {
+                f.write_str("HTTP/2 frame could not be represented by its physical layout")
+            }
             Self::WrongFrameType { expected, actual } => write!(
                 f,
                 "HTTP/2 frame type mismatch: expected {}, got {}",
@@ -217,6 +222,8 @@ pub enum Http2BuildError {
         /// Supplied payload length.
         actual: usize,
     },
+    /// The generated physical representation rejected an otherwise unreachable layout state.
+    InvalidRepresentation,
     /// The caller buffer cannot contain the complete frame.
     BufferTooShort {
         /// Required bytes.
@@ -275,6 +282,9 @@ impl fmt::Display for Http2BuildError {
                 f,
                 "HTTP/2 payload is too large: maximum {maximum}, got {actual}"
             ),
+            Self::InvalidRepresentation => {
+                f.write_str("HTTP/2 frame could not be represented by its physical layout")
+            }
             Self::BufferTooShort {
                 required,
                 available,

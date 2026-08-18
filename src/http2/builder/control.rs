@@ -6,10 +6,11 @@ use super::super::control::{
 };
 use super::super::error::Http2BuildError;
 use super::super::frame::Http2Frame;
+use super::super::frame_layout::MAXIMUM_PAYLOAD;
 use super::super::priority::Http2Priority;
 use super::super::settings::{Http2Setting, Http2Settings};
 use super::super::types::{Http2ErrorCode, Http2FrameType, Http2StreamId};
-use super::raw::{FRAME_HEADER_LENGTH, MAXIMUM_PAYLOAD, write_frame_envelope};
+use super::raw::write_frame_envelope;
 
 /// Builds a typed HTTP/2 SETTINGS frame in caller-owned storage.
 pub struct Http2SettingsBuilder<'a, 'b> {
@@ -59,7 +60,7 @@ impl<'a, 'b> Http2SettingsBuilder<'a, 'b> {
                 actual: payload_length,
             });
         }
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             payload_length,
             Http2FrameType::SETTINGS,
@@ -67,13 +68,14 @@ impl<'a, 'b> Http2SettingsBuilder<'a, 'b> {
             Http2StreamId::new(0),
             maximum_payload,
         )?;
+        let payload = layout.payload_mut();
         for (index, setting) in self.settings.iter().copied().enumerate() {
-            let offset = FRAME_HEADER_LENGTH + index * 6;
-            bytes[offset..offset + 2].copy_from_slice(&setting.id().raw().to_be_bytes());
-            bytes[offset + 2..offset + 6].copy_from_slice(&setting.value().to_be_bytes());
+            let offset = index * 6;
+            payload[offset..offset + 2].copy_from_slice(&setting.id().raw().to_be_bytes());
+            payload[offset + 2..offset + 6].copy_from_slice(&setting.value().to_be_bytes());
         }
-        Ok(Http2Settings::from_validated(Http2Frame::from_validated(
-            bytes,
+        Ok(Http2Settings::from_validated(Http2Frame::from_layout(
+            layout.into_view(),
         )))
     }
 }
@@ -124,7 +126,7 @@ impl<'a, 'b> Http2GoawayBuilder<'a, 'b> {
                 actual: self.additional_debug_data.len(),
             },
         )?;
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             payload_length,
             Http2FrameType::GOAWAY,
@@ -132,13 +134,12 @@ impl<'a, 'b> Http2GoawayBuilder<'a, 'b> {
             Http2StreamId::new(0),
             maximum_payload,
         )?;
-        bytes[FRAME_HEADER_LENGTH..FRAME_HEADER_LENGTH + 4]
-            .copy_from_slice(&self.last_stream_id.raw().to_be_bytes());
-        bytes[FRAME_HEADER_LENGTH + 4..FRAME_HEADER_LENGTH + 8]
-            .copy_from_slice(&self.error_code.raw().to_be_bytes());
-        bytes[FRAME_HEADER_LENGTH + 8..].copy_from_slice(self.additional_debug_data);
+        let payload = layout.payload_mut();
+        payload[..4].copy_from_slice(&self.last_stream_id.raw().to_be_bytes());
+        payload[4..8].copy_from_slice(&self.error_code.raw().to_be_bytes());
+        payload[8..].copy_from_slice(self.additional_debug_data);
         Ok(Http2Goaway::from_validated(
-            Http2Frame::from_validated(bytes),
+            Http2Frame::from_layout(layout.into_view()),
             self.last_stream_id,
             self.error_code,
         ))
@@ -180,7 +181,7 @@ impl<'a> Http2PriorityFrameBuilder<'a> {
         maximum_payload: usize,
     ) -> Result<Http2PriorityFrame<'a>, Http2BuildError> {
         validate_required_stream_id(self.stream_id)?;
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             5,
             Http2FrameType::PRIORITY,
@@ -188,11 +189,11 @@ impl<'a> Http2PriorityFrameBuilder<'a> {
             self.stream_id,
             maximum_payload,
         )?;
-        bytes[FRAME_HEADER_LENGTH..FRAME_HEADER_LENGTH + 4]
-            .copy_from_slice(&self.priority.raw_dependency().to_be_bytes());
-        bytes[FRAME_HEADER_LENGTH + 4] = self.priority.weight();
+        let payload = layout.payload_mut();
+        payload[..4].copy_from_slice(&self.priority.raw_dependency().to_be_bytes());
+        payload[4] = self.priority.weight();
         Ok(Http2PriorityFrame::from_validated(
-            Http2Frame::from_validated(bytes),
+            Http2Frame::from_layout(layout.into_view()),
             self.priority,
         ))
     }
@@ -233,7 +234,7 @@ impl<'a> Http2RstStreamBuilder<'a> {
         maximum_payload: usize,
     ) -> Result<Http2RstStream<'a>, Http2BuildError> {
         validate_required_stream_id(self.stream_id)?;
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             4,
             Http2FrameType::RST_STREAM,
@@ -241,9 +242,10 @@ impl<'a> Http2RstStreamBuilder<'a> {
             self.stream_id,
             maximum_payload,
         )?;
-        bytes[FRAME_HEADER_LENGTH..].copy_from_slice(&self.error_code.raw().to_be_bytes());
+        let payload = layout.payload_mut();
+        payload[..].copy_from_slice(&self.error_code.raw().to_be_bytes());
         Ok(Http2RstStream::from_validated(
-            Http2Frame::from_validated(bytes),
+            Http2Frame::from_layout(layout.into_view()),
             self.error_code,
         ))
     }
@@ -276,7 +278,7 @@ impl<'a, 'b> Http2PingBuilder<'a, 'b> {
         self,
         maximum_payload: usize,
     ) -> Result<Http2Ping<'a>, Http2BuildError> {
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             8,
             Http2FrameType::PING,
@@ -284,17 +286,14 @@ impl<'a, 'b> Http2PingBuilder<'a, 'b> {
             Http2StreamId::new(0),
             maximum_payload,
         )?;
-        bytes[FRAME_HEADER_LENGTH..].copy_from_slice(self.opaque_data);
-        let opaque_data = bytes[FRAME_HEADER_LENGTH..].try_into().map_err(|_| {
-            Http2BuildError::BufferTooShort {
-                required: FRAME_HEADER_LENGTH + 8,
-                available: bytes.len(),
-            }
-        })?;
-        Ok(Http2Ping::from_validated(
-            Http2Frame::from_validated(bytes),
-            opaque_data,
-        ))
+        let payload = layout.payload_mut();
+        payload[..].copy_from_slice(self.opaque_data);
+        let frame = Http2Frame::from_layout(layout.into_view());
+        let opaque_data = frame
+            .payload()
+            .try_into()
+            .map_err(|_| Http2BuildError::InvalidRepresentation)?;
+        Ok(Http2Ping::from_validated(frame, opaque_data))
     }
 }
 
@@ -341,7 +340,7 @@ impl<'a> Http2WindowUpdateBuilder<'a> {
         if self.increment.value() == 0 {
             return Err(Http2BuildError::ZeroWindowIncrement);
         }
-        let bytes = write_frame_envelope(
+        let mut layout = write_frame_envelope(
             self.buffer,
             4,
             Http2FrameType::WINDOW_UPDATE,
@@ -349,9 +348,10 @@ impl<'a> Http2WindowUpdateBuilder<'a> {
             self.stream_id,
             maximum_payload,
         )?;
-        bytes[FRAME_HEADER_LENGTH..].copy_from_slice(&self.increment.raw().to_be_bytes());
+        let payload = layout.payload_mut();
+        payload[..].copy_from_slice(&self.increment.raw().to_be_bytes());
         Ok(Http2WindowUpdate::from_validated(
-            Http2Frame::from_validated(bytes),
+            Http2Frame::from_layout(layout.into_view()),
             self.increment,
         ))
     }
