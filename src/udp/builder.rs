@@ -1,6 +1,7 @@
 //! UDP caller-buffer builder.
 
-use super::datagram::{HEADER_LENGTH, UdpDatagramMut};
+use super::datagram::UdpDatagramMut;
+use super::layout::{HEADER_LENGTH, UdpDatagramLayoutBuilder, UdpDatagramLayoutWriteError};
 use core::fmt;
 
 /// Failure to construct a UDP datagram in caller-provided storage.
@@ -17,6 +18,17 @@ pub enum UdpDatagramBuildError {
         /// Available bytes.
         available: usize,
     },
+    /// A field value could not be encoded at its required wire width.
+    InvalidFieldEncoding {
+        /// The field whose encoding was invalid.
+        field: &'static str,
+        /// The required fixed width.
+        expected: usize,
+        /// The encoded width that was produced.
+        actual: usize,
+    },
+    /// The validated datagram could not be represented by the UDP layout.
+    InvalidRepresentation,
 }
 impl fmt::Display for UdpDatagramBuildError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -32,6 +44,46 @@ impl fmt::Display for UdpDatagramBuildError {
                 formatter,
                 "UDP buffer is too short: need {required} bytes, have {available}"
             ),
+            Self::InvalidFieldEncoding {
+                field,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "UDP field {field} encoding: expected {expected} bytes, got {actual}"
+            ),
+            Self::InvalidRepresentation => {
+                formatter.write_str("validated UDP datagram could not be represented")
+            }
+        }
+    }
+}
+impl core::error::Error for UdpDatagramBuildError {}
+
+fn representation_error(error: UdpDatagramLayoutWriteError) -> UdpDatagramBuildError {
+    match error {
+        UdpDatagramLayoutWriteError::FieldSourcePort(error)
+        | UdpDatagramLayoutWriteError::FieldDestinationPort(error)
+        | UdpDatagramLayoutWriteError::FieldLength(error)
+        | UdpDatagramLayoutWriteError::FieldChecksum(error) => match error {},
+        UdpDatagramLayoutWriteError::InvalidPlanLength {
+            field,
+            expected,
+            actual,
+        } => UdpDatagramBuildError::InvalidFieldEncoding {
+            field,
+            expected,
+            actual,
+        },
+        UdpDatagramLayoutWriteError::MissingContext { .. }
+        | UdpDatagramLayoutWriteError::InvalidCodecWidth { .. }
+        | UdpDatagramLayoutWriteError::InvalidRangeSource { .. }
+        | UdpDatagramLayoutWriteError::ConflictingRangeSources { .. }
+        | UdpDatagramLayoutWriteError::InvalidPrefixPlanLength { .. }
+        | UdpDatagramLayoutWriteError::InvalidLayoutExtent { .. }
+        | UdpDatagramLayoutWriteError::OutputTooShort { .. }
+        | UdpDatagramLayoutWriteError::MissingField { .. } => {
+            UdpDatagramBuildError::InvalidRepresentation
         }
     }
 }
@@ -90,11 +142,14 @@ impl<'a> UdpDatagramBuilder<'a> {
                 available: self.buffer.len(),
             });
         }
-        let bytes = &mut self.buffer[..length];
-        bytes[0..2].copy_from_slice(&self.source_port.to_be_bytes());
-        bytes[2..4].copy_from_slice(&destination_port.to_be_bytes());
-        bytes[4..6].copy_from_slice(&encoded_length.to_be_bytes());
-        bytes[6..8].copy_from_slice(&self.checksum.to_be_bytes());
-        Ok(UdpDatagramMut::from_validated(bytes))
+        let (layout, _) = UdpDatagramLayoutBuilder::new()
+            .source_port(self.source_port)
+            .destination_port(destination_port)
+            .length(encoded_length)
+            .checksum(self.checksum)
+            .payload_existing(self.payload_length)
+            .build_into(&mut self.buffer[..length])
+            .map_err(representation_error)?;
+        Ok(UdpDatagramMut::from_layout(layout))
     }
 }

@@ -31,6 +31,6 @@ fn direct_udp_dispatch_valid_mismatch_malformed_and_mutable() {
 
     let mut bytes = packet(Ipv6NextHeader::UDP, &[0, 1, 0, 2, 0, 8, 0, 0]);
     let mut ipv6 = Ipv6PacketMut::parse(&mut bytes).unwrap();
-    ipv6.udp_mut().unwrap().unwrap().set_source_port(9);
+    ipv6.udp_mut().unwrap().unwrap().set_source_port(9).unwrap();
     assert_eq!(&ipv6.payload()[..2], &[0, 9]);
 }

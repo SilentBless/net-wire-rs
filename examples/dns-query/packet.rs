@@ -58,6 +58,7 @@ pub enum PacketError {
     Ip(ParseError),
     Udp(ParseError),
     UdpBuild(net_wire::udp::UdpDatagramBuildError),
+    UdpMutation(net_wire::udp::UdpDatagramMutationError),
     IpBuild(net_wire::ipv4::Ipv4PacketBuildError),
     BufferTooShort { required: usize, available: usize },
     InvalidIpv4Checksum,
@@ -72,6 +73,7 @@ impl fmt::Display for PacketError {
             Self::Ip(error) => write!(f, "IPv4 parse error: {error}"),
             Self::Udp(error) => write!(f, "UDP parse error: {error}"),
             Self::UdpBuild(error) => write!(f, "UDP build error: {error}"),
+            Self::UdpMutation(error) => write!(f, "UDP mutation error: {error}"),
             Self::IpBuild(error) => write!(f, "IPv4 build error: {error}"),
             Self::BufferTooShort {
                 required,
@@ -123,7 +125,8 @@ pub fn build_query_packet<'a>(
         .destination_port(query.destination_port)
         .build()
         .map_err(PacketError::UdpBuild)?;
-        udp.update_checksum_ipv4(query.source, query.destination);
+        udp.update_checksum_ipv4(query.source, query.destination)
+            .map_err(PacketError::UdpMutation)?;
     }
     let total_length = IPV4_HEADER_LEN + udp_length;
     {

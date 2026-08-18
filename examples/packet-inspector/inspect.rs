@@ -27,7 +27,8 @@ pub fn demo_frame() -> Result<Vec<u8>, String> {
                 .build()
                 .map_err(|error| format!("could not build the demo UDP datagram: {error}"))?;
         udp.payload_mut().copy_from_slice(DEMO_PAYLOAD);
-        udp.update_checksum_ipv4(source, destination);
+        udp.update_checksum_ipv4(source, destination)
+            .map_err(|error| format!("could not update the demo UDP checksum: {error}"))?;
     }
 
     Ipv4PacketBuilder::new(&mut ip_bytes, udp_length)

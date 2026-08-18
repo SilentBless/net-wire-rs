@@ -27,7 +27,7 @@ fn extensions_reach_transport_at_the_correct_offset() {
 
     let mut bytes = bytes;
     let mut ipv6 = Ipv6PacketMut::parse(&mut bytes).unwrap();
-    ipv6.udp_mut().unwrap().unwrap().set_source_port(9);
+    ipv6.udp_mut().unwrap().unwrap().set_source_port(9).unwrap();
     assert_eq!(&bytes[72..74], &[0, 9]);
 }
 

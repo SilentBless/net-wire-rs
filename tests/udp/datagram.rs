@@ -10,6 +10,13 @@ fn parse_mutate_and_build_with_atomic_errors() {
         })
     );
     assert_eq!(
+        UdpDatagram::parse(&[0, 1, 0, 2, 0, 0, 0, 0]),
+        Err(ParseError::InvalidTotalLength {
+            header_length: 8,
+            total_length: 0
+        })
+    );
+    assert_eq!(
         UdpDatagram::parse(&[0, 1, 0, 2, 0, 7, 0, 0]),
         Err(ParseError::InvalidTotalLength {
             header_length: 8,
@@ -23,6 +30,8 @@ fn parse_mutate_and_build_with_atomic_errors() {
             available: 8
         })
     );
+    let empty = UdpDatagram::parse(&[0, 1, 0, 2, 0, 8, 0, 0]).unwrap();
+    assert!(empty.payload().is_empty());
     let bytes = [0, 1, 0, 2, 0, 9, 0, 0, 7, 0xee];
     let packet = UdpDatagram::parse(&bytes).unwrap();
     assert_eq!(
@@ -38,11 +47,11 @@ fn parse_mutate_and_build_with_atomic_errors() {
     );
     let mut bytes = bytes;
     let mut packet = UdpDatagramMut::parse(&mut bytes).unwrap();
-    packet.set_source_port(9);
-    packet.set_destination_port(10);
-    packet.set_checksum(0xbeef);
+    let source_result: Result<(), UdpDatagramMutationError> = packet.set_source_port(9);
+    assert_eq!(source_result, Ok(()));
+    packet.set_destination_port(10).unwrap();
+    packet.set_checksum(0xbeef).unwrap();
     packet.payload_mut()[0] = 4;
-    packet.as_bytes_mut()[4..6].copy_from_slice(&9u16.to_be_bytes());
     assert_eq!(packet.as_bytes(), &[0, 9, 0, 10, 0, 9, 0xbe, 0xef, 4]);
 
     let mut output = [0xa5; 11];

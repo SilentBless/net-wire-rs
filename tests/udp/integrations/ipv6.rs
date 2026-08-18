@@ -20,9 +20,9 @@ fn ipv6_zero_is_invalid_and_update_uses_pseudoheader() {
     assert_eq!(pseudo(source, destination, &bytes), 0x07b6);
     let mut d = UdpDatagramMut::parse(&mut bytes).unwrap();
     assert!(!d.checksum_is_valid_ipv6(source, destination));
-    d.update_checksum_ipv6(source, destination);
+    d.update_checksum_ipv6(source, destination).unwrap();
     assert_eq!(d.checksum(), 0x07b6);
     assert!(d.checksum_is_valid_ipv6(source, destination));
-    d.set_checksum(1);
+    d.set_checksum(1).unwrap();
     assert!(!d.checksum_is_valid_ipv6(source, destination));
 }

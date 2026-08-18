@@ -23,13 +23,13 @@ fn ipv4_statuses_known_checksum_and_zero_encoding() {
         d.checksum_status_ipv4(source, destination),
         UdpChecksumStatus::NotPresent
     );
-    d.update_checksum_ipv4(source, destination);
+    d.update_checksum_ipv4(source, destination).unwrap();
     assert_eq!(d.checksum(), 0x76f3);
     assert_eq!(
         d.checksum_status_ipv4(source, destination),
         UdpChecksumStatus::Valid
     );
-    d.set_source_port(3);
+    d.set_source_port(3).unwrap();
     assert_eq!(
         d.checksum_status_ipv4(source, destination),
         UdpChecksumStatus::Invalid
@@ -37,6 +37,6 @@ fn ipv4_statuses_known_checksum_and_zero_encoding() {
     let mut zero = [0x12, 0x34, 0xab, 0xcd, 0, 10, 0, 0, 0x55, 0xa1];
     assert_eq!(pseudo(source, destination, &zero), 0);
     let mut zero = UdpDatagramMut::parse(&mut zero).unwrap();
-    zero.update_checksum_ipv4(source, destination);
+    zero.update_checksum_ipv4(source, destination).unwrap();
     assert_eq!(zero.checksum(), 0xffff);
 }

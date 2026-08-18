@@ -7,8 +7,9 @@ mod builder;
 ))]
 mod checksum;
 pub(crate) mod datagram;
+mod layout;
 
 pub use builder::{UdpDatagramBuildError, UdpDatagramBuilder};
 #[cfg(all(feature = "udp", feature = "ipv4"))]
 pub use checksum::UdpChecksumStatus;
-pub use datagram::{UdpDatagram, UdpDatagramMut};
+pub use datagram::{UdpDatagram, UdpDatagramMut, UdpDatagramMutationError};

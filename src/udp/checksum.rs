@@ -9,7 +9,7 @@ use crate::internet_checksum::add_ipv6_pseudoheader;
 use crate::ipv4::address::Ipv4Address;
 #[cfg(all(feature = "udp", feature = "ipv6"))]
 use crate::ipv6::address::Ipv6Address;
-use crate::udp::datagram::{UdpDatagram, UdpDatagramMut};
+use crate::udp::datagram::{UdpDatagram, UdpDatagramMut, UdpDatagramMutationError};
 
 const UDP_PROTOCOL: u8 = 17;
 
@@ -36,7 +36,16 @@ impl UdpDatagram<'_> {
         if self.checksum() == 0 {
             return UdpChecksumStatus::NotPresent;
         }
-        if udp_ipv4_checksum_sum(self.as_bytes(), source, destination) == 0xffff {
+        if udp_ipv4_checksum_sum(
+            source,
+            destination,
+            self.source_port(),
+            self.destination_port(),
+            self.length(),
+            self.checksum(),
+            self.payload(),
+        ) == 0xffff
+        {
             UdpChecksumStatus::Valid
         } else {
             UdpChecksumStatus::Invalid
@@ -55,7 +64,16 @@ impl UdpDatagramMut<'_> {
         if self.checksum() == 0 {
             return UdpChecksumStatus::NotPresent;
         }
-        if udp_ipv4_checksum_sum(self.as_bytes(), source, destination) == 0xffff {
+        if udp_ipv4_checksum_sum(
+            source,
+            destination,
+            self.source_port(),
+            self.destination_port(),
+            self.length(),
+            self.checksum(),
+            self.payload(),
+        ) == 0xffff
+        {
             UdpChecksumStatus::Valid
         } else {
             UdpChecksumStatus::Invalid
@@ -63,26 +81,48 @@ impl UdpDatagramMut<'_> {
     }
 
     /// Recomputes this datagram's IPv4 checksum.
-    pub fn update_checksum_ipv4(&mut self, source: Ipv4Address, destination: Ipv4Address) {
-        let bytes = self.as_bytes_mut();
-        bytes[6..8].fill(0);
-        let value = internet_checksum::checksum(udp_ipv4_checksum_sum(bytes, source, destination));
-        bytes[6..8].copy_from_slice(&(if value == 0 { 0xffff } else { value }).to_be_bytes());
+    pub fn update_checksum_ipv4(
+        &mut self,
+        source: Ipv4Address,
+        destination: Ipv4Address,
+    ) -> Result<(), UdpDatagramMutationError> {
+        let value = internet_checksum::checksum(udp_ipv4_checksum_sum(
+            source,
+            destination,
+            self.source_port(),
+            self.destination_port(),
+            self.length(),
+            0,
+            self.payload(),
+        ));
+        self.set_checksum(if value == 0 { 0xffff } else { value })
     }
 }
 
 #[cfg(all(feature = "udp", feature = "ipv4"))]
-fn udp_ipv4_checksum_sum(bytes: &[u8], source: Ipv4Address, destination: Ipv4Address) -> u32 {
-    let length = u16::try_from(bytes.len()).expect("UDP length is validated");
-    internet_checksum::add_bytes(
-        add_ipv4_pseudoheader(
-            0,
-            source.octets(),
-            destination.octets(),
-            UDP_PROTOCOL,
-            length,
-        ),
-        bytes,
+fn udp_ipv4_checksum_sum(
+    source: Ipv4Address,
+    destination: Ipv4Address,
+    source_port: u16,
+    destination_port: u16,
+    length: u16,
+    checksum: u16,
+    payload: &[u8],
+) -> u32 {
+    let sum = add_ipv4_pseudoheader(
+        0,
+        source.octets(),
+        destination.octets(),
+        UDP_PROTOCOL,
+        length,
+    );
+    udp_checksum_sum(
+        sum,
+        source_port,
+        destination_port,
+        length,
+        checksum,
+        payload,
     )
 }
 
@@ -92,10 +132,13 @@ impl UdpDatagram<'_> {
     pub fn checksum_is_valid_ipv6(&self, source: Ipv6Address, destination: Ipv6Address) -> bool {
         self.checksum() != 0
             && udp_ipv6_checksum_sum(
-                self.as_bytes(),
                 source,
                 destination,
-                u32::from(self.length()),
+                self.source_port(),
+                self.destination_port(),
+                self.length(),
+                self.checksum(),
+                self.payload(),
             ) == 0xffff
     }
 }
@@ -106,39 +149,73 @@ impl UdpDatagramMut<'_> {
     pub fn checksum_is_valid_ipv6(&self, source: Ipv6Address, destination: Ipv6Address) -> bool {
         self.checksum() != 0
             && udp_ipv6_checksum_sum(
-                self.as_bytes(),
                 source,
                 destination,
-                u32::from(self.length()),
+                self.source_port(),
+                self.destination_port(),
+                self.length(),
+                self.checksum(),
+                self.payload(),
             ) == 0xffff
     }
 
     /// Recomputes this datagram's IPv6 pseudoheader checksum.
-    pub fn update_checksum_ipv6(&mut self, source: Ipv6Address, destination: Ipv6Address) {
-        let length = u32::from(self.length());
-        let bytes = self.as_bytes_mut();
-        bytes[6..8].fill(0);
-        let value =
-            internet_checksum::checksum(udp_ipv6_checksum_sum(bytes, source, destination, length));
-        bytes[6..8].copy_from_slice(&(if value == 0 { 0xffff } else { value }).to_be_bytes());
+    pub fn update_checksum_ipv6(
+        &mut self,
+        source: Ipv6Address,
+        destination: Ipv6Address,
+    ) -> Result<(), UdpDatagramMutationError> {
+        let value = internet_checksum::checksum(udp_ipv6_checksum_sum(
+            source,
+            destination,
+            self.source_port(),
+            self.destination_port(),
+            self.length(),
+            0,
+            self.payload(),
+        ));
+        self.set_checksum(if value == 0 { 0xffff } else { value })
     }
 }
 
 #[cfg(all(feature = "udp", feature = "ipv6"))]
 fn udp_ipv6_checksum_sum(
-    bytes: &[u8],
     source: Ipv6Address,
     destination: Ipv6Address,
-    length: u32,
+    source_port: u16,
+    destination_port: u16,
+    length: u16,
+    checksum: u16,
+    payload: &[u8],
 ) -> u32 {
-    internet_checksum::add_bytes(
-        add_ipv6_pseudoheader(
-            0,
-            source.octets(),
-            destination.octets(),
-            UDP_PROTOCOL,
-            length,
-        ),
-        bytes,
+    let sum = add_ipv6_pseudoheader(
+        0,
+        source.octets(),
+        destination.octets(),
+        UDP_PROTOCOL,
+        u32::from(length),
+    );
+    udp_checksum_sum(
+        sum,
+        source_port,
+        destination_port,
+        length,
+        checksum,
+        payload,
     )
+}
+
+fn udp_checksum_sum(
+    sum: u32,
+    source_port: u16,
+    destination_port: u16,
+    length: u16,
+    checksum: u16,
+    payload: &[u8],
+) -> u32 {
+    let sum = internet_checksum::add_bytes(sum, &source_port.to_be_bytes());
+    let sum = internet_checksum::add_bytes(sum, &destination_port.to_be_bytes());
+    let sum = internet_checksum::add_bytes(sum, &length.to_be_bytes());
+    let sum = internet_checksum::add_bytes(sum, &checksum.to_be_bytes());
+    internet_checksum::add_bytes(sum, payload)
 }

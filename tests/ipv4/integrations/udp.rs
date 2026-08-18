@@ -48,6 +48,6 @@ fn dispatches_udp_only_when_complete_and_atomic() {
 fn mutable_udp_dispatch_writes_through() {
     let mut bytes = packet(17, 0, &[0, 1, 0, 2, 0, 8, 0, 0]);
     let mut ipv4 = Ipv4PacketMut::parse(&mut bytes).unwrap();
-    ipv4.udp_mut().unwrap().unwrap().set_source_port(9);
+    ipv4.udp_mut().unwrap().unwrap().set_source_port(9).unwrap();
     assert_eq!(&ipv4.payload()[..2], &[0, 9]);
 }
