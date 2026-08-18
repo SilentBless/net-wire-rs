@@ -7,6 +7,7 @@ mod builder;
 ))]
 mod checksum;
 mod flags;
+mod layout;
 pub(crate) mod segment;
 
 pub use builder::{TcpSegmentBuildError, TcpSegmentBuilder};
@@ -16,4 +17,4 @@ pub use builder::{TcpSegmentBuildError, TcpSegmentBuilder};
 ))]
 pub use checksum::TcpChecksumError;
 pub use flags::TcpFlags;
-pub use segment::{TcpSegment, TcpSegmentMut};
+pub use segment::{TcpSegment, TcpSegmentMut, TcpSegmentMutationError};

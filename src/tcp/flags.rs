@@ -40,6 +40,16 @@ impl TcpFlags {
         Self(self.0 | other.0)
     }
 }
+impl From<u8> for TcpFlags {
+    fn from(raw: u8) -> Self {
+        Self::new(raw)
+    }
+}
+impl From<TcpFlags> for u8 {
+    fn from(flags: TcpFlags) -> Self {
+        flags.raw()
+    }
+}
 impl BitOr for TcpFlags {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self {

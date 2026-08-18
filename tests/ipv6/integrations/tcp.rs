@@ -36,6 +36,6 @@ fn direct_tcp_dispatch_valid_mismatch_malformed_and_mutable() {
         ],
     );
     let mut ipv6 = Ipv6PacketMut::parse(&mut bytes).unwrap();
-    ipv6.tcp_mut().unwrap().unwrap().set_source_port(9);
+    ipv6.tcp_mut().unwrap().unwrap().set_source_port(9).unwrap();
     assert_eq!(&ipv6.payload()[..2], &[0, 9]);
 }

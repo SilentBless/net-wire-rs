@@ -68,15 +68,15 @@ fn layout_all_accessors_mutators_flags_and_builder_errors() {
     assert_eq!(TcpFlags::new(0xff).raw(), 0xff);
     let mut bytes = bytes;
     let mut p = TcpSegmentMut::parse(&mut bytes).unwrap();
-    p.set_source_port(9);
-    p.set_destination_port(10);
-    p.set_sequence_number(11);
-    p.set_acknowledgment_number(12);
-    p.set_flags(flags);
+    p.set_source_port(9).unwrap();
+    p.set_destination_port(10).unwrap();
+    p.set_sequence_number(11).unwrap();
+    p.set_acknowledgment_number(12).unwrap();
+    p.set_flags(flags).unwrap();
     assert_eq!(&p.as_bytes()[12..14], &[0x65, 0x12]);
-    p.set_window_size(13);
-    p.set_checksum(0xbeef);
-    p.set_urgent_pointer(14);
+    p.set_window_size(13).unwrap();
+    p.set_checksum(0xbeef).unwrap();
+    p.set_urgent_pointer(14).unwrap();
     p.options_mut()[0] = 8;
     p.payload_mut()[0] = 7;
     assert_eq!(

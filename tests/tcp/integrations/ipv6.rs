@@ -27,7 +27,7 @@ fn known_wrong_stale_and_updated() {
     assert_eq!(p.checksum(), 0x6e4d);
     assert!(p.checksum_is_valid_ipv6(s, d).unwrap());
     assert!(!p.checksum_is_valid_ipv6(s, wrong).unwrap());
-    p.set_source_port(3);
+    p.set_source_port(3).unwrap();
     assert!(!p.checksum_is_valid_ipv6(s, d).unwrap());
     p.update_checksum_ipv6(s, d).unwrap();
     assert!(p.checksum_is_valid_ipv6(s, d).unwrap());
