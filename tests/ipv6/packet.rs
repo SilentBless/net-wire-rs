@@ -1,7 +1,8 @@
 use crate::fixtures::WIRE;
 use net_wire::ParseError;
 use net_wire::ipv6::{
-    Ipv6Address, Ipv6NextHeader, Ipv6Packet, Ipv6PacketBuildError, Ipv6PacketMut, Ipv6PayloadLength,
+    Ipv6Address, Ipv6NextHeader, Ipv6Packet, Ipv6PacketMut, Ipv6PacketMutationError,
+    Ipv6PayloadLength,
 };
 
 #[test]
@@ -80,18 +81,17 @@ fn errors_and_mutation() {
     );
     let mut b = WIRE;
     let mut p = Ipv6PacketMut::parse(&mut b).unwrap();
-    p.set_traffic_class(1);
+    p.set_traffic_class(1).unwrap();
     p.set_flow_label(2).unwrap();
-    p.set_next_header(Ipv6NextHeader::new(3));
-    p.set_hop_limit(4);
-    p.set_source(Ipv6Address::new([5; 16]));
-    p.set_destination(Ipv6Address::new([6; 16]));
+    p.set_next_header(Ipv6NextHeader::new(3)).unwrap();
+    p.set_hop_limit(4).unwrap();
+    p.set_source(Ipv6Address::new([5; 16])).unwrap();
+    p.set_destination(Ipv6Address::new([6; 16])).unwrap();
     p.payload_mut()[0] = 7;
-    p.as_bytes_mut()[3] = 2;
     let old = p.as_bytes().to_vec();
     assert_eq!(
         p.set_flow_label(0x10_0000),
-        Err(Ipv6PacketBuildError::FlowLabelTooLarge)
+        Err(Ipv6PacketMutationError::FlowLabelTooLarge)
     );
     assert_eq!(p.as_bytes(), old);
     assert_eq!(
