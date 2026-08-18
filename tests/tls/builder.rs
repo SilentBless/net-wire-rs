@@ -23,15 +23,18 @@ fn built_client_from_local<'a>(buffer: &'a mut [u8]) -> ClientHello<'a> {
 #[test]
 fn builders_copy_inputs_and_fail_atomically() {
     let mut record_output = [0xaa; 9];
-    let record = TlsRecordBuilder::new(
-        &mut record_output,
-        TlsContentType::HANDSHAKE,
-        TlsProtocolVersion::TLS12,
-        &[1, 2],
-    )
-    .build()
-    .unwrap();
-    assert_eq!(record.as_bytes(), &[22, 3, 3, 0, 2, 1, 2]);
+    {
+        let record = TlsRecordBuilder::new(
+            &mut record_output,
+            TlsContentType::HANDSHAKE,
+            TlsProtocolVersion::TLS12,
+            &[1, 2],
+        )
+        .build()
+        .unwrap();
+        assert_eq!(record.as_bytes(), &[22, 3, 3, 0, 2, 1, 2]);
+    }
+    assert_eq!(record_output[7..], [0xaa, 0xaa]);
 
     let mut handshake_output = [0xaa; 8];
     let handshake = TlsHandshakeBuilder::new(
@@ -161,6 +164,20 @@ fn builders_copy_inputs_and_fail_atomically() {
         Err(TlsBuildError::LengthTooLarge)
     );
     assert_eq!(untouched, before);
+
+    let mut oversized_record = [0xaa; 8];
+    let before = oversized_record;
+    assert_eq!(
+        TlsRecordBuilder::new(
+            &mut oversized_record,
+            TlsContentType::HANDSHAKE,
+            TlsProtocolVersion::TLS12,
+            &oversized,
+        )
+        .build(),
+        Err(TlsBuildError::LengthTooLarge)
+    );
+    assert_eq!(oversized_record, before);
 
     let compression_methods = [0u8; 256];
     let mut compression_output = [0xaa; 64];

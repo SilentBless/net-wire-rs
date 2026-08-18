@@ -54,6 +54,30 @@ wire_type!(TlsPskKeyExchangeMode, u8, grease_u8);
 wire_type!(TlsServerNameType, u8, never_u8);
 wire_type!(TlsCertificateCompressionAlgorithm, u16, never_u16);
 
+impl From<u8> for TlsContentType {
+    fn from(value: u8) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<TlsContentType> for u8 {
+    fn from(value: TlsContentType) -> Self {
+        value.raw()
+    }
+}
+
+impl From<u16> for TlsProtocolVersion {
+    fn from(value: u16) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<TlsProtocolVersion> for u16 {
+    fn from(value: TlsProtocolVersion) -> Self {
+        value.raw()
+    }
+}
+
 impl TlsContentType {
     /// The change_cipher_spec record content type.
     pub const CHANGE_CIPHER_SPEC: Self = Self(20);

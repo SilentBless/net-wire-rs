@@ -21,8 +21,10 @@ fn record_and_handshake_views_are_exactly_bounded() {
 
     let mut mutable = bytes;
     let mut record = TlsRecordMut::parse(&mut mutable).unwrap();
-    record.set_content_type(TlsContentType::APPLICATION_DATA);
-    record.set_version(TlsProtocolVersion::TLS13);
+    record
+        .set_content_type(TlsContentType::APPLICATION_DATA)
+        .unwrap();
+    record.set_version(TlsProtocolVersion::TLS13).unwrap();
     record.fragment_mut()[0] = 7;
     assert_eq!(record.fragment(), &[7, 2]);
     assert_eq!(record.as_bytes(), &[23, 3, 4, 0, 2, 7, 2]);
@@ -66,4 +68,45 @@ fn encrypted_application_data_stays_opaque() {
     let record = TlsRecord::parse(&bytes).unwrap();
     assert_eq!(record.content_type(), TlsContentType::APPLICATION_DATA);
     assert_eq!(record.fragment(), &[1, 0, 0, 1, 0xff]);
+}
+
+#[test]
+fn record_layout_preserves_unknown_values_and_coalesced_mutable_suffix() {
+    let bytes = [0xfe, 0xfa, 0xce, 0, 1, 7, 22, 3, 3, 0, 0];
+    let record = TlsRecord::parse(&bytes).unwrap();
+    assert_eq!(record.content_type().raw(), 0xfe);
+    assert_eq!(record.version().raw(), 0xface);
+    assert_eq!(record.as_bytes(), &bytes[..6]);
+
+    let mut mutable = bytes;
+    {
+        let mut record = TlsRecordMut::parse(&mut mutable).unwrap();
+        record
+            .set_content_type(TlsContentType::APPLICATION_DATA)
+            .unwrap();
+        record.set_version(TlsProtocolVersion::TLS13).unwrap();
+        record.fragment_mut()[0] = 9;
+    }
+    assert_eq!(&mutable[..6], &[23, 3, 4, 0, 1, 9]);
+    assert_eq!(&mutable[6..], &bytes[6..]);
+}
+
+#[test]
+fn record_header_and_fragment_truncation_are_exact() {
+    for available in 0..5 {
+        assert_eq!(
+            TlsRecord::parse(&[0; 5][..available]),
+            Err(TlsParseError::Incomplete {
+                required: 5,
+                available,
+            })
+        );
+    }
+    assert_eq!(
+        TlsRecord::parse(&[22, 3, 3, 0, 2, 1]),
+        Err(TlsParseError::Incomplete {
+            required: 7,
+            available: 6,
+        })
+    );
 }

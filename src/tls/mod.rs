@@ -5,9 +5,10 @@ pub(crate) mod extensions;
 mod handshake;
 mod hello;
 mod record;
+mod record_layout;
 pub(crate) mod types;
 pub use builder::{ClientHelloBuilder, ServerHelloBuilder, TlsExtensionBuilder};
-pub use error::{TlsBuildError, TlsParseError};
+pub use error::{TlsBuildError, TlsParseError, TlsRecordMutationError};
 pub use extensions::{
     AlpnProtocol, AlpnProtocolIter, AlpnProtocolList, CertificateCompressionAlgorithms,
     ClientKeyShare, ClientPreSharedKey, ClientServerNameList, ClientSupportedVersions, Cookie,
