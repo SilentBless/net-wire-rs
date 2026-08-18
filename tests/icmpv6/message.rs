@@ -27,11 +27,11 @@ fn layout_mutation_and_builder_errors_are_bounded_and_atomic() {
 
     let mut mutable = bytes;
     let mut message = Icmpv6MessageMut::parse(&mut mutable).unwrap();
-    message.set_message_type(Icmpv6Type::ECHO_REPLY);
-    message.set_code(4);
-    message.set_checksum(0xbeef);
+    message.set_message_type(Icmpv6Type::ECHO_REPLY).unwrap();
+    message.set_code(4).unwrap();
+    message.set_checksum(0xbeef).unwrap();
+    message.body_mut()[0] = 7;
     message.body_mut()[2] = 9;
-    message.as_bytes_mut()[4] = 7;
     assert_eq!(message.as_bytes(), &[129, 4, 0xbe, 0xef, 7, 2, 9]);
 
     let mut output = [0xa5; 8];

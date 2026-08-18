@@ -2,7 +2,8 @@
 
 use core::fmt;
 
-use super::message::{HEADER_LENGTH, Icmpv6MessageMut};
+use super::layout::{HEADER_LENGTH, Icmpv6MessageLayoutBuilder, Icmpv6MessageLayoutWriteError};
+use super::message::Icmpv6MessageMut;
 use super::types::Icmpv6Type;
 
 /// Failure to construct an ICMPv6 message in caller-provided storage.
@@ -21,6 +22,17 @@ pub enum Icmpv6MessageBuildError {
         /// Available bytes.
         available: usize,
     },
+    /// A field value could not be encoded at its required wire width.
+    InvalidFieldEncoding {
+        /// The field whose encoding was invalid.
+        field: &'static str,
+        /// The required fixed width.
+        expected: usize,
+        /// The encoded width that was produced.
+        actual: usize,
+    },
+    /// The validated message could not be represented by the ICMPv6 layout.
+    InvalidRepresentation,
 }
 
 impl fmt::Display for Icmpv6MessageBuildError {
@@ -38,6 +50,45 @@ impl fmt::Display for Icmpv6MessageBuildError {
                 formatter,
                 "ICMPv6 buffer is too short: need {required} bytes, have {available}"
             ),
+            Self::InvalidFieldEncoding {
+                field,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "ICMPv6 field {field} encoding: expected {expected} bytes, got {actual}"
+            ),
+            Self::InvalidRepresentation => {
+                formatter.write_str("validated ICMPv6 message could not be represented")
+            }
+        }
+    }
+}
+impl core::error::Error for Icmpv6MessageBuildError {}
+
+fn representation_error(error: Icmpv6MessageLayoutWriteError) -> Icmpv6MessageBuildError {
+    match error {
+        Icmpv6MessageLayoutWriteError::FieldMessageType(error)
+        | Icmpv6MessageLayoutWriteError::FieldCode(error)
+        | Icmpv6MessageLayoutWriteError::FieldChecksum(error) => match error {},
+        Icmpv6MessageLayoutWriteError::InvalidPlanLength {
+            field,
+            expected,
+            actual,
+        } => Icmpv6MessageBuildError::InvalidFieldEncoding {
+            field,
+            expected,
+            actual,
+        },
+        Icmpv6MessageLayoutWriteError::MissingContext { .. }
+        | Icmpv6MessageLayoutWriteError::InvalidCodecWidth { .. }
+        | Icmpv6MessageLayoutWriteError::InvalidRangeSource { .. }
+        | Icmpv6MessageLayoutWriteError::ConflictingRangeSources { .. }
+        | Icmpv6MessageLayoutWriteError::InvalidPrefixPlanLength { .. }
+        | Icmpv6MessageLayoutWriteError::InvalidLayoutExtent { .. }
+        | Icmpv6MessageLayoutWriteError::OutputTooShort { .. }
+        | Icmpv6MessageLayoutWriteError::MissingField { .. } => {
+            Icmpv6MessageBuildError::InvalidRepresentation
         }
     }
 }
@@ -104,11 +155,13 @@ impl<'a> Icmpv6MessageBuilder<'a> {
                 available: self.buffer.len(),
             });
         }
-
-        let bytes = &mut self.buffer[..length];
-        bytes[0] = message_type.raw();
-        bytes[1] = code;
-        bytes[2..4].copy_from_slice(&self.checksum.to_be_bytes());
-        Ok(Icmpv6MessageMut::from_validated(bytes))
+        let (layout, _) = Icmpv6MessageLayoutBuilder::new()
+            .message_type(message_type)
+            .code(code)
+            .checksum(self.checksum)
+            .body_existing(self.body_length)
+            .build_into(&mut self.buffer[..length])
+            .map_err(representation_error)?;
+        Ok(Icmpv6MessageMut::from_layout(layout))
     }
 }

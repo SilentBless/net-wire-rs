@@ -29,3 +29,15 @@ impl Icmpv6Type {
         self.0
     }
 }
+
+impl From<u8> for Icmpv6Type {
+    fn from(value: u8) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<Icmpv6Type> for u8 {
+    fn from(value: Icmpv6Type) -> Self {
+        value.raw()
+    }
+}

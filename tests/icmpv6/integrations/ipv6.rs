@@ -29,8 +29,10 @@ fn ipv6_checksum_handles_an_odd_message_length() {
     let mut bytes = [128, 0, 0, 0, 0, 1, 0, 2, 0xaa];
     let expected = pseudo(source, destination, &bytes);
     assert_eq!(expected, 0x7a43);
-    bytes[2..4].copy_from_slice(&expected.to_be_bytes());
-
+    Icmpv6MessageMut::parse(&mut bytes)
+        .unwrap()
+        .set_checksum(expected)
+        .unwrap();
     assert!(
         Icmpv6Message::parse(&bytes)
             .unwrap()
@@ -47,7 +49,10 @@ fn ipv6_checksum_rejects_wrong_addresses_and_stale_bytes_then_updates() {
     let mut bytes = [128, 0, 0, 0, 0, 1, 0, 2];
     let want = pseudo(source, destination, &bytes);
     assert_eq!(want, 0x2445);
-    bytes[2..4].copy_from_slice(&want.to_be_bytes());
+    Icmpv6MessageMut::parse(&mut bytes)
+        .unwrap()
+        .set_checksum(want)
+        .unwrap();
     assert!(
         Icmpv6Message::parse(&bytes)
             .unwrap()

@@ -28,6 +28,10 @@ fn direct_icmpv6_dispatch_valid_mismatch_malformed_and_mutable() {
 
     let mut bytes = packet(Ipv6NextHeader::ICMPV6, &[128, 0, 0, 0]);
     let mut ipv6 = Ipv6PacketMut::parse(&mut bytes).unwrap();
-    ipv6.icmpv6_mut().unwrap().unwrap().set_code(7);
+    {
+        let mut icmpv6 = ipv6.icmpv6_mut().unwrap().unwrap();
+        assert_eq!(icmpv6.message_type().raw(), 128);
+        icmpv6.set_code(7).unwrap();
+    }
     assert_eq!(ipv6.payload()[1], 7);
 }
