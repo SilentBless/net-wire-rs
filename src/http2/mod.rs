@@ -5,7 +5,6 @@ mod control;
 mod data;
 mod error;
 mod frame;
-mod frame_layout;
 mod headers;
 /// RFC 7541 HPACK wire primitives.
 pub mod hpack;

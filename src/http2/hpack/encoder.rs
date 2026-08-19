@@ -6,7 +6,7 @@ use super::context::PendingSizes;
 use super::huffman::{HpackHuffmanEncodeError, HpackHuffmanEncoder};
 use super::integer::{canonical_encoded_len, write_canonical_for_valid_prefix};
 use super::representation::HpackLiteralMode;
-use super::representation_builder::{
+use super::representation::builder::{
     HpackDynamicTableSizeUpdateBuilder, HpackIndexedFieldBuilder, HpackRepresentationBuildError,
 };
 use super::table::{

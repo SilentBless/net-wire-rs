@@ -2,9 +2,9 @@
 
 use core::fmt;
 
-use super::integer::{canonical_encoded_len, write_canonical_for_valid_prefix};
-use super::representation::HpackLiteralMode;
-use super::string::HpackStringLiteralBuildError;
+use super::super::integer::{canonical_encoded_len, write_canonical_for_valid_prefix};
+use super::super::string::HpackStringLiteralBuildError;
+use super::HpackLiteralMode;
 
 /// Builds an RFC 7541 section 6.1 indexed header field in caller-owned storage.
 pub struct HpackIndexedFieldBuilder<'a> {
@@ -58,7 +58,7 @@ impl<'a> HpackLiteralValue<'a> {
     /// Creates a value input around opaque bytes already Huffman-encoded when `huffman` is true.
     ///
     /// This type only preserves the supplied bytes and flag. It does not encode Huffman data;
-    /// callers needing Huffman coding should first use [`super::HpackHuffmanEncoder`].
+    /// callers needing Huffman coding should first use [`super::super::HpackHuffmanEncoder`].
     pub const fn new_encoded(encoded_bytes: &'a [u8], huffman: bool) -> Self {
         Self {
             encoded_bytes,

@@ -2,7 +2,7 @@
 
 use super::super::error::Http2BuildError;
 use super::super::frame::Http2FrameMut;
-use super::super::frame_layout::{
+use super::super::frame::layout::{
     FRAME_HEADER_LENGTH, Http2FrameLayoutBuilder, Http2FrameLayoutViewMut,
     Http2FrameLayoutWriteError, MAXIMUM_PAYLOAD,
 };

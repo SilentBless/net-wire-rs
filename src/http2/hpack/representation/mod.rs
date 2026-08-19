@@ -5,6 +5,8 @@ use core::fmt;
 use super::integer::{HpackInteger, HpackIntegerParseError};
 use super::string::{HpackStringLiteral, HpackStringLiteralParseError};
 
+pub(super) mod builder;
+
 /// One exact borrowed RFC 7541 section 6 header-field representation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HpackRepresentation<'a> {

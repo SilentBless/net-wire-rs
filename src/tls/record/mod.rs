@@ -1,12 +1,14 @@
 //! TLS record views and caller-buffer construction.
 
+mod layout;
+
+use self::layout::{
+    TLS_RECORD_HEADER_LEN, TlsRecordLayoutBuilder, TlsRecordLayoutError,
+    TlsRecordLayoutMutationError, TlsRecordLayoutView, TlsRecordLayoutViewMut,
+    TlsRecordLayoutWriteError,
+};
 use super::{
     error::{TlsBuildError, TlsParseError, TlsRecordMutationError},
-    record_layout::{
-        TLS_RECORD_HEADER_LEN, TlsRecordLayoutBuilder, TlsRecordLayoutError,
-        TlsRecordLayoutMutationError, TlsRecordLayoutView, TlsRecordLayoutViewMut,
-        TlsRecordLayoutWriteError,
-    },
     types::{TlsContentType, TlsProtocolVersion},
 };
 use core::fmt;
@@ -149,7 +151,7 @@ impl<'a> TlsRecordMut<'a> {
         Ok(Self { layout })
     }
 
-    pub(super) const fn from_layout(layout: TlsRecordLayoutViewMut<'a>) -> Self {
+    const fn from_layout(layout: TlsRecordLayoutViewMut<'a>) -> Self {
         Self { layout }
     }
 

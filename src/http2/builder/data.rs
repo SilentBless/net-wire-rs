@@ -3,7 +3,7 @@
 use super::super::data::Http2Data;
 use super::super::error::Http2BuildError;
 use super::super::frame::Http2Frame;
-use super::super::frame_layout::MAXIMUM_PAYLOAD;
+use super::super::frame::layout::MAXIMUM_PAYLOAD;
 use super::super::headers::{Http2Continuation, Http2Headers, Http2PushPromise};
 use super::super::priority::Http2Priority;
 use super::super::types::{Http2FrameType, Http2StreamId};

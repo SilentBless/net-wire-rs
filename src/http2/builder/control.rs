@@ -6,7 +6,7 @@ use super::super::control::{
 };
 use super::super::error::Http2BuildError;
 use super::super::frame::Http2Frame;
-use super::super::frame_layout::MAXIMUM_PAYLOAD;
+use super::super::frame::layout::MAXIMUM_PAYLOAD;
 use super::super::priority::Http2Priority;
 use super::super::settings::{Http2Setting, Http2Settings};
 use super::super::types::{Http2ErrorCode, Http2FrameType, Http2StreamId};

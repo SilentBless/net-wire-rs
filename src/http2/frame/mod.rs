@@ -1,7 +1,9 @@
 //! Exact HTTP/2 client-preface and frame views.
 
 use super::error::Http2ParseError;
-use super::frame_layout::{
+pub(super) mod layout;
+
+use self::layout::{
     FRAME_HEADER_LENGTH, Http2FrameLayoutError, Http2FrameLayoutView, Http2FrameLayoutViewMut,
 };
 use super::types::{Http2FrameType, Http2StreamId};

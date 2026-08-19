@@ -19,7 +19,7 @@ mod error;
 ))]
 mod internet_checksum;
 #[cfg(any(feature = "http2", feature = "qpack"))]
-mod rfc7541_huffman;
+mod rfc7541;
 
 #[cfg(feature = "arp")]
 /// ARP packet views, semantic fields, and caller-buffer construction.

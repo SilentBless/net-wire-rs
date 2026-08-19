@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::rfc7541_huffman;
+use crate::rfc7541::huffman as rfc7541_huffman;
 
 /// Encodes QPACK Huffman payload bytes into caller-owned storage.
 pub struct QpackHuffmanEncoder<'input, 'output> {

@@ -6,7 +6,6 @@ mod encoder;
 mod huffman;
 mod integer;
 mod representation;
-mod representation_builder;
 mod string;
 mod table;
 
@@ -23,13 +22,13 @@ pub use huffman::{
 pub use integer::{
     HpackInteger, HpackIntegerBuildError, HpackIntegerBuilder, HpackIntegerParseError,
 };
+pub use representation::builder::{
+    HpackDynamicTableSizeUpdateBuilder, HpackIndexedFieldBuilder, HpackLiteralFieldBuilder,
+    HpackLiteralName, HpackLiteralValue, HpackRepresentationBuildError,
+};
 pub use representation::{
     HpackDynamicTableSizeUpdate, HpackIndexedField, HpackLiteralField, HpackLiteralMode,
     HpackRepresentation, HpackRepresentationParseError,
-};
-pub use representation_builder::{
-    HpackDynamicTableSizeUpdateBuilder, HpackIndexedFieldBuilder, HpackLiteralFieldBuilder,
-    HpackLiteralName, HpackLiteralValue, HpackRepresentationBuildError,
 };
 pub use string::{
     HpackStringLiteral, HpackStringLiteralBuildError, HpackStringLiteralBuilder,

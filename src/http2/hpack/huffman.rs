@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::rfc7541_huffman;
+use crate::rfc7541::huffman as rfc7541_huffman;
 
 /// Encodes RFC 7541 Appendix B Huffman data into caller-owned storage.
 pub struct HpackHuffmanEncoder<'input, 'output> {
