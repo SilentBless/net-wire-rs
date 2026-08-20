@@ -1,8 +1,14 @@
 //! RFC 9000 section 16 variable-length integer parsing and construction.
 
+mod codec;
+
 use core::fmt;
 
+use wire_repr::{EncodePlan, PrefixCodec};
+
 const MAX_VALUE: u64 = (1 << 62) - 1;
+
+pub(super) use codec::{QuicVarIntCodec, QuicVarIntCodecValue};
 
 /// Failure to parse a QUIC variable-length integer.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -61,24 +67,6 @@ impl QuicVarIntLen {
             Self::Two => 16_383,
             Self::Four => 1_073_741_823,
             Self::Eight => MAX_VALUE,
-        }
-    }
-
-    const fn prefix(self) -> u8 {
-        match self {
-            Self::One => 0b00,
-            Self::Two => 0b01,
-            Self::Four => 0b10,
-            Self::Eight => 0b11,
-        }
-    }
-
-    const fn from_first_byte(first: u8) -> Self {
-        match first >> 6 {
-            0 => Self::One,
-            1 => Self::Two,
-            2 => Self::Four,
-            _ => Self::Eight,
         }
     }
 }
@@ -149,31 +137,21 @@ impl<'a> QuicVarInt<'a> {
     }
 
     /// Parses one variable-length integer and excludes all following input bytes.
+    #[inline(always)]
     pub fn parse(bytes: &'a [u8]) -> Result<Self, QuicVarIntParseError> {
-        let first = *bytes.first().ok_or(QuicVarIntParseError::Incomplete {
-            required: 1,
-            available: 0,
-        })?;
-        let length = QuicVarIntLen::from_first_byte(first);
-        let required = length.byte_len();
-        if bytes.len() < required {
-            return Err(QuicVarIntParseError::Incomplete {
+        let extent = QuicVarIntCodec::validate_prefix(bytes)?;
+        let required = extent.encoded_len().get();
+        let exact = bytes
+            .get(..required)
+            .ok_or(QuicVarIntParseError::Incomplete {
                 required,
                 available: bytes.len(),
-            });
-        }
-
-        let exact = &bytes[..required];
-        let mut value = u64::from(exact[0] & 0x3f);
-        let mut index = 1;
-        while index < required {
-            value = (value << 8) | u64::from(exact[index]);
-            index += 1;
-        }
+            })?;
+        let decoded = QuicVarIntCodec::decode(exact);
         Ok(Self {
             bytes: exact,
-            value,
-            length,
+            value: decoded.value(),
+            length: decoded.length(),
         })
     }
 
@@ -199,7 +177,7 @@ impl<'a> QuicVarInt<'a> {
 
     /// Returns whether this uses the canonical shortest width for its value.
     pub const fn is_canonical(self) -> bool {
-        self.length as u8 == canonical_len(self.value) as u8
+        self.length as u8 == codec::canonical_len(self.value) as u8
     }
 }
 
@@ -227,18 +205,11 @@ impl<'a> QuicVarIntBuilder<'a> {
     }
 
     /// Validates the value, requested width, and capacity before mutating the destination.
+    #[inline(always)]
     pub fn build(self) -> Result<QuicVarInt<'a>, QuicVarIntBuildError> {
-        if self.value > MAX_VALUE {
-            return Err(QuicVarIntBuildError::ValueTooLarge { value: self.value });
-        }
-        let length = self.length.unwrap_or(canonical_len(self.value));
-        if self.value > length.max_value() {
-            return Err(QuicVarIntBuildError::WidthTooSmall {
-                length,
-                value: self.value,
-            });
-        }
-        let required = length.byte_len();
+        let value = self.value;
+        let plan = QuicVarIntCodec::plan(QuicVarIntCodecValue::encoding(value, self.length))?;
+        let required = plan.encoded_len();
         if self.destination.len() < required {
             return Err(QuicVarIntBuildError::BufferTooShort {
                 required,
@@ -247,25 +218,11 @@ impl<'a> QuicVarIntBuilder<'a> {
         }
 
         let exact = &mut self.destination[..required];
-        let value_bytes = self.value.to_be_bytes();
-        exact.copy_from_slice(&value_bytes[value_bytes.len() - required..]);
-        exact[0] |= length.prefix() << 6;
+        plan.write_into(exact);
         Ok(QuicVarInt {
             bytes: exact,
-            value: self.value,
-            length,
+            value,
+            length: plan.length(),
         })
-    }
-}
-
-const fn canonical_len(value: u64) -> QuicVarIntLen {
-    if value <= QuicVarIntLen::One.max_value() {
-        QuicVarIntLen::One
-    } else if value <= QuicVarIntLen::Two.max_value() {
-        QuicVarIntLen::Two
-    } else if value <= QuicVarIntLen::Four.max_value() {
-        QuicVarIntLen::Four
-    } else {
-        QuicVarIntLen::Eight
     }
 }
