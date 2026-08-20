@@ -3,10 +3,33 @@
 use super::super::packet::header::{
     QuicConnectionId, QuicConnectionIdField, QuicLongHeader, QuicLongPacketType, QuicVersion,
 };
+use super::super::packet::layout::{
+    QuicLongHeaderLayoutBuilder, QuicLongHeaderLayoutWriteError, prefix_len,
+};
 use super::super::packet::terminal::{QuicRetryPacket, QuicVersionNegotiationPacket};
-use super::QuicPacketBuildError;
+use super::{QuicPacketBuildError, built_prefix_error};
 
 const RETRY_INTEGRITY_TAG_LEN: usize = 16;
+
+fn representation_error(error: QuicLongHeaderLayoutWriteError) -> QuicPacketBuildError {
+    match error {
+        QuicLongHeaderLayoutWriteError::FieldFirstByte(error)
+        | QuicLongHeaderLayoutWriteError::FieldVersion(error)
+        | QuicLongHeaderLayoutWriteError::FieldDestinationConnectionIdLength(error)
+        | QuicLongHeaderLayoutWriteError::FieldSourceConnectionIdLength(error) => match error {},
+        QuicLongHeaderLayoutWriteError::InvalidPlanLength { .. }
+        | QuicLongHeaderLayoutWriteError::MissingContext { .. }
+        | QuicLongHeaderLayoutWriteError::InvalidCodecWidth { .. }
+        | QuicLongHeaderLayoutWriteError::InvalidRangeSource { .. }
+        | QuicLongHeaderLayoutWriteError::ConflictingRangeSources { .. }
+        | QuicLongHeaderLayoutWriteError::InvalidPrefixPlanLength { .. }
+        | QuicLongHeaderLayoutWriteError::InvalidLayoutExtent { .. }
+        | QuicLongHeaderLayoutWriteError::OutputTooShort { .. }
+        | QuicLongHeaderLayoutWriteError::MissingField { .. } => {
+            QuicPacketBuildError::InvalidRepresentation
+        }
+    }
+}
 
 /// Builds a terminal QUIC Version Negotiation packet in caller-owned storage.
 pub struct QuicVersionNegotiationPacketBuilder<'buffer, 'input> {
@@ -66,19 +89,15 @@ impl<'buffer, 'input> QuicVersionNegotiationPacketBuilder<'buffer, 'input> {
                     offset: self.versions.len(),
                     length: 4,
                 })?;
-        let destination_start = 6;
-        let destination_end = checked_add(
-            destination_start,
+        let source_end = prefix_len(
             self.destination_connection_id.len(),
-            "destination connection ID",
-        )?;
-        let source_length_offset = destination_end;
-        let source_start = checked_add(source_length_offset, 1, "source connection ID length")?;
-        let source_end = checked_add(
-            source_start,
             self.source_connection_id.len(),
-            "source connection ID",
-        )?;
+        )
+        .ok_or(QuicPacketBuildError::LengthOverflow {
+            component: "invariant long-header prefix",
+            offset: 7 + self.destination_connection_id.len(),
+            length: self.source_connection_id.len(),
+        })?;
         let required = checked_add(source_end, version_bytes, "version list")?;
         if self.destination.len() < required {
             return Err(QuicPacketBuildError::BufferTooShort {
@@ -88,29 +107,24 @@ impl<'buffer, 'input> QuicVersionNegotiationPacketBuilder<'buffer, 'input> {
         }
 
         let destination = self.destination;
-        destination[0] = 0x80 | self.unused_bits;
-        destination[1..5].copy_from_slice(&QuicVersion::NEGOTIATION.raw().to_be_bytes());
-        destination[5] = self.destination_connection_id.len() as u8;
-        destination[destination_start..destination_end]
-            .copy_from_slice(self.destination_connection_id.as_bytes());
-        destination[source_length_offset] = self.source_connection_id.len() as u8;
-        destination[source_start..source_end].copy_from_slice(self.source_connection_id.as_bytes());
-        for (slot, version) in destination[source_end..required]
-            .chunks_exact_mut(4)
-            .zip(self.versions)
         {
-            slot.copy_from_slice(&version.raw().to_be_bytes());
+            let (_, suffix) = QuicLongHeaderLayoutBuilder::new()
+                .first_byte(0x80 | self.unused_bits)
+                .version(QuicVersion::NEGOTIATION)
+                .destination_connection_id(self.destination_connection_id.as_bytes())
+                .source_connection_id(self.source_connection_id.as_bytes())
+                .build_into(destination)
+                .map_err(representation_error)?;
+            for (slot, version) in suffix[..version_bytes]
+                .chunks_exact_mut(4)
+                .zip(self.versions)
+            {
+                slot.copy_from_slice(&version.raw().to_be_bytes());
+            }
         }
 
         let bytes = &destination[..required];
-        let header = QuicLongHeader::from_validated(
-            &bytes[..source_end],
-            bytes[0],
-            QuicVersion::NEGOTIATION,
-            QuicConnectionId::new(&bytes[destination_start..destination_end]),
-            QuicConnectionId::new(&bytes[source_start..source_end]),
-            &bytes[source_end..],
-        );
+        let header = QuicLongHeader::parse(bytes).map_err(built_prefix_error)?;
         Ok(QuicVersionNegotiationPacket::from_validated(
             bytes,
             header,
@@ -182,19 +196,15 @@ impl<'buffer, 'input> QuicRetryPacketBuilder<'buffer, 'input> {
             return Err(QuicPacketBuildError::EmptyRetryToken);
         }
 
-        let destination_start = 6;
-        let destination_end = checked_add(
-            destination_start,
+        let source_end = prefix_len(
             self.destination_connection_id.len(),
-            "destination connection ID",
-        )?;
-        let source_length_offset = destination_end;
-        let source_start = checked_add(source_length_offset, 1, "source connection ID length")?;
-        let source_end = checked_add(
-            source_start,
             self.source_connection_id.len(),
-            "source connection ID",
-        )?;
+        )
+        .ok_or(QuicPacketBuildError::LengthOverflow {
+            component: "invariant long-header prefix",
+            offset: 7 + self.destination_connection_id.len(),
+            length: self.source_connection_id.len(),
+        })?;
         let token_end = checked_add(source_end, self.token.len(), "Retry Token")?;
         let required = checked_add(token_end, RETRY_INTEGRITY_TAG_LEN, "Retry Integrity Tag")?;
         if self.destination.len() < required {
@@ -205,25 +215,21 @@ impl<'buffer, 'input> QuicRetryPacketBuilder<'buffer, 'input> {
         }
 
         let destination = self.destination;
-        destination[0] = 0xc0 | (raw_type << 4) | self.unused_bits;
-        destination[1..5].copy_from_slice(&self.version.raw().to_be_bytes());
-        destination[5] = self.destination_connection_id.len() as u8;
-        destination[destination_start..destination_end]
-            .copy_from_slice(self.destination_connection_id.as_bytes());
-        destination[source_length_offset] = self.source_connection_id.len() as u8;
-        destination[source_start..source_end].copy_from_slice(self.source_connection_id.as_bytes());
-        destination[source_end..token_end].copy_from_slice(self.token);
-        destination[token_end..required].copy_from_slice(self.integrity_tag);
+        {
+            let (_, suffix) = QuicLongHeaderLayoutBuilder::new()
+                .first_byte(0xc0 | (raw_type << 4) | self.unused_bits)
+                .version(self.version)
+                .destination_connection_id(self.destination_connection_id.as_bytes())
+                .source_connection_id(self.source_connection_id.as_bytes())
+                .build_into(destination)
+                .map_err(representation_error)?;
+            suffix[..self.token.len()].copy_from_slice(self.token);
+            suffix[self.token.len()..self.token.len() + RETRY_INTEGRITY_TAG_LEN]
+                .copy_from_slice(self.integrity_tag);
+        }
 
         let bytes = &destination[..required];
-        let header = QuicLongHeader::from_validated(
-            &bytes[..source_end],
-            bytes[0],
-            self.version,
-            QuicConnectionId::new(&bytes[destination_start..destination_end]),
-            QuicConnectionId::new(&bytes[source_start..source_end]),
-            &bytes[source_end..],
-        );
+        let header = QuicLongHeader::parse(bytes).map_err(built_prefix_error)?;
         Ok(QuicRetryPacket::from_validated(
             bytes,
             header,

@@ -2,6 +2,7 @@
 
 mod datagram;
 pub(super) mod header;
+pub(in crate::quic) mod layout;
 pub(super) mod long;
 mod parse;
 pub(super) mod terminal;

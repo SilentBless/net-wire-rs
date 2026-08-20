@@ -2,12 +2,39 @@
 
 use core::fmt;
 
-use super::packet::header::{QuicConnectionIdField, QuicVersion};
+use super::packet::{
+    QuicPacketParseError,
+    header::{QuicConnectionIdField, QuicVersion},
+};
 use super::varint::QuicVarIntBuildError;
 
 mod long;
 mod short;
 mod terminal;
+
+fn built_prefix_error(error: QuicPacketParseError) -> QuicPacketBuildError {
+    match error {
+        QuicPacketParseError::EmptyDatagram
+        | QuicPacketParseError::ShortHeaderContextRequired
+        | QuicPacketParseError::WrongHeaderForm { .. }
+        | QuicPacketParseError::Incomplete { .. }
+        | QuicPacketParseError::InvalidRepresentation
+        | QuicPacketParseError::LengthOverflow { .. }
+        | QuicPacketParseError::UnsupportedVersion { .. }
+        | QuicPacketParseError::WrongVersion { .. }
+        | QuicPacketParseError::EmptyVersionList
+        | QuicPacketParseError::MisalignedVersionList { .. }
+        | QuicPacketParseError::NotRetry { .. }
+        | QuicPacketParseError::EmptyRetryToken
+        | QuicPacketParseError::FixedBitNotSet { .. }
+        | QuicPacketParseError::ConnectionIdTooLong { .. }
+        | QuicPacketParseError::NotLengthDelimited { .. }
+        | QuicPacketParseError::LengthNotRepresentable { .. }
+        | QuicPacketParseError::ProtectedRemainderTooShort { .. } => {
+            QuicPacketBuildError::InvalidRepresentation
+        }
+    }
+}
 
 /// Identifies a QUIC variable-length integer field during packet construction.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -76,6 +103,8 @@ pub enum QuicPacketBuildError {
         /// Component byte length.
         length: usize,
     },
+    /// The generated invariant-prefix representation could not encode validated inputs.
+    InvalidRepresentation,
     /// The caller buffer cannot contain the complete packet.
     BufferTooShort {
         /// Complete packet byte length required.
@@ -131,6 +160,9 @@ impl fmt::Display for QuicPacketBuildError {
                 f,
                 "QUIC packet size overflows while adding {component}: offset {offset} plus length {length}"
             ),
+            Self::InvalidRepresentation => {
+                f.write_str("validated QUIC invariant prefix could not be represented")
+            }
             Self::BufferTooShort {
                 required,
                 available,

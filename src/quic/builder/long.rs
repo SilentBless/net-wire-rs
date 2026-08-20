@@ -3,9 +3,32 @@
 use super::super::packet::header::{
     QuicConnectionId, QuicConnectionIdField, QuicLongHeader, QuicLongPacketType, QuicVersion,
 };
+use super::super::packet::layout::{
+    QuicLongHeaderLayoutBuilder, QuicLongHeaderLayoutWriteError, prefix_len,
+};
 use super::super::packet::long::QuicProtectedLongPacket;
 use super::super::varint::{QuicVarInt, QuicVarIntBuildError, QuicVarIntLen};
-use super::{QuicPacketBuildError, QuicPacketBuildField};
+use super::{QuicPacketBuildError, QuicPacketBuildField, built_prefix_error};
+
+fn representation_error(error: QuicLongHeaderLayoutWriteError) -> QuicPacketBuildError {
+    match error {
+        QuicLongHeaderLayoutWriteError::FieldFirstByte(error)
+        | QuicLongHeaderLayoutWriteError::FieldVersion(error)
+        | QuicLongHeaderLayoutWriteError::FieldDestinationConnectionIdLength(error)
+        | QuicLongHeaderLayoutWriteError::FieldSourceConnectionIdLength(error) => match error {},
+        QuicLongHeaderLayoutWriteError::InvalidPlanLength { .. }
+        | QuicLongHeaderLayoutWriteError::MissingContext { .. }
+        | QuicLongHeaderLayoutWriteError::InvalidCodecWidth { .. }
+        | QuicLongHeaderLayoutWriteError::InvalidRangeSource { .. }
+        | QuicLongHeaderLayoutWriteError::ConflictingRangeSources { .. }
+        | QuicLongHeaderLayoutWriteError::InvalidPrefixPlanLength { .. }
+        | QuicLongHeaderLayoutWriteError::InvalidLayoutExtent { .. }
+        | QuicLongHeaderLayoutWriteError::OutputTooShort { .. }
+        | QuicLongHeaderLayoutWriteError::MissingField { .. } => {
+            QuicPacketBuildError::InvalidRepresentation
+        }
+    }
+}
 
 /// Builds a protected QUIC v1 or v2 Initial packet in caller-owned storage.
 pub struct QuicInitialPacketBuilder<'buffer, 'input> {
@@ -253,19 +276,15 @@ fn build_long<'buffer>(
         None => None,
     };
 
-    let destination_start = 6;
-    let destination_end = checked_add(
-        destination_start,
+    let source_end = prefix_len(
         input.destination_connection_id.len(),
-        "destination connection ID",
-    )?;
-    let source_length_offset = destination_end;
-    let source_start = checked_add(source_length_offset, 1, "source connection ID length")?;
-    let source_end = checked_add(
-        source_start,
         input.source_connection_id.len(),
-        "source connection ID",
-    )?;
+    )
+    .ok_or(QuicPacketBuildError::LengthOverflow {
+        component: "invariant long-header prefix",
+        offset: 7 + input.destination_connection_id.len(),
+        length: input.source_connection_id.len(),
+    })?;
     let token_length_offset = source_end;
     let token_start = match (input.token, token_length_len) {
         (Some(_), Some(length)) => {
@@ -300,37 +319,33 @@ fn build_long<'buffer>(
     }
 
     let destination = input.destination;
-    destination[0] = 0xc0 | (raw_type << 4) | input.protected_low_bits;
-    destination[1..5].copy_from_slice(&input.version.raw().to_be_bytes());
-    destination[5] = input.destination_connection_id.len() as u8;
-    destination[destination_start..destination_end]
-        .copy_from_slice(input.destination_connection_id.as_bytes());
-    destination[source_length_offset] = input.source_connection_id.len() as u8;
-    destination[source_start..source_end].copy_from_slice(input.source_connection_id.as_bytes());
-    if let (Some(token), Some(token_length_len)) = (input.token, token_length_len) {
+    {
+        let (_, suffix) = QuicLongHeaderLayoutBuilder::new()
+            .first_byte(0xc0 | (raw_type << 4) | input.protected_low_bits)
+            .version(input.version)
+            .destination_connection_id(input.destination_connection_id.as_bytes())
+            .source_connection_id(input.source_connection_id.as_bytes())
+            .build_into(destination)
+            .map_err(representation_error)?;
+        if let (Some(token), Some(token_length_len)) = (input.token, token_length_len) {
+            write_varint(
+                &mut suffix[..token_start - source_end],
+                token_length_value,
+                token_length_len,
+            );
+            suffix[token_start - source_end..token_end - source_end].copy_from_slice(token);
+        }
         write_varint(
-            &mut destination[token_length_offset..token_start],
-            token_length_value,
-            token_length_len,
+            &mut suffix[length_offset - source_end..packet_number_offset - source_end],
+            protected_length,
+            length_len,
         );
-        destination[token_start..token_end].copy_from_slice(token);
+        suffix[packet_number_offset - source_end..required - source_end]
+            .copy_from_slice(input.protected_remainder);
     }
-    write_varint(
-        &mut destination[length_offset..packet_number_offset],
-        protected_length,
-        length_len,
-    );
-    destination[packet_number_offset..required].copy_from_slice(input.protected_remainder);
 
     let bytes = &destination[..required];
-    let header = QuicLongHeader::from_validated(
-        &bytes[..source_end],
-        bytes[0],
-        input.version,
-        QuicConnectionId::new(&bytes[destination_start..destination_end]),
-        QuicConnectionId::new(&bytes[source_start..source_end]),
-        &bytes[source_end..],
-    );
+    let header = QuicLongHeader::parse(bytes).map_err(built_prefix_error)?;
     let token_length = token_length_len.map(|length| {
         QuicVarInt::from_validated(
             &bytes[token_length_offset..token_start],

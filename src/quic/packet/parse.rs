@@ -25,6 +25,8 @@ pub enum QuicPacketParseError {
         /// Bytes available in the supplied input.
         available: usize,
     },
+    /// The generated invariant-prefix representation rejected an otherwise structural input.
+    InvalidRepresentation,
     /// A caller-supplied length cannot be represented when locating a field.
     LengthOverflow {
         /// Offset before adding the supplied length.
@@ -112,6 +114,9 @@ impl fmt::Display for QuicPacketParseError {
                 f,
                 "QUIC packet input is incomplete: need {required} bytes, have {available}"
             ),
+            Self::InvalidRepresentation => {
+                f.write_str("generated QUIC invariant-prefix representation rejected the input")
+            }
             Self::LengthOverflow { offset, length } => write!(
                 f,
                 "QUIC packet field end cannot be represented: offset {offset} plus length {length} overflows usize"

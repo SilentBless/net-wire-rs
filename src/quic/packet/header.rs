@@ -1,5 +1,6 @@
 //! QUIC packet-header layouts and their version and connection-ID vocabulary.
 
+use super::layout::{QuicLongHeaderLayout, QuicLongHeaderLayoutError};
 use super::parse::QuicPacketParseError;
 
 /// An exact borrowed opaque QUIC connection ID.
@@ -67,6 +68,18 @@ impl QuicVersion {
     /// Returns whether this is a reserved version with the `0x?a?a?a?a` pattern.
     pub const fn is_reserved(self) -> bool {
         self.0 & 0x0f0f_0f0f == 0x0a0a_0a0a
+    }
+}
+
+impl From<u32> for QuicVersion {
+    fn from(raw: u32) -> Self {
+        Self::new(raw)
+    }
+}
+
+impl From<QuicVersion> for u32 {
+    fn from(version: QuicVersion) -> Self {
+        version.raw()
     }
 }
 
@@ -162,6 +175,9 @@ impl QuicShortHeaderContext {
 /// are intentionally not interpreted as a payload by this version-independent layer.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct QuicLongHeader<'a> {
+    // The generated view is the sole physical layout owner. Cached semantic values retain the
+    // established const public accessors without recreating layout arithmetic.
+    layout: QuicLongHeaderLayout<'a>,
     bytes: &'a [u8],
     first_byte: u8,
     version: QuicVersion,
@@ -171,25 +187,6 @@ pub struct QuicLongHeader<'a> {
 }
 
 impl<'a> QuicLongHeader<'a> {
-    /// Assembles a long-header view from builder-validated wire components.
-    pub(crate) const fn from_validated(
-        bytes: &'a [u8],
-        first_byte: u8,
-        version: QuicVersion,
-        destination_connection_id: QuicConnectionId<'a>,
-        source_connection_id: QuicConnectionId<'a>,
-        version_specific: &'a [u8],
-    ) -> Self {
-        Self {
-            bytes,
-            first_byte,
-            version,
-            destination_connection_id,
-            source_connection_id,
-            version_specific,
-        }
-    }
-
     /// Parses exactly the RFC 8999 invariant long-header prefix.
     pub fn parse(bytes: &'a [u8]) -> Result<Self, QuicPacketParseError> {
         let first_byte = first_byte(bytes)?;
@@ -199,30 +196,17 @@ impl<'a> QuicLongHeader<'a> {
                 first_byte,
             });
         }
-
-        require(bytes, 5)?;
-        let version =
-            QuicVersion::new(u32::from_be_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]));
-        require(bytes, 6)?;
-        let destination_len = usize::from(bytes[5]);
-        let destination_end = field_end(6, destination_len)?;
-        require(bytes, destination_end)?;
-        let destination_connection_id = QuicConnectionId::new(&bytes[6..destination_end]);
-
-        let source_len_offset = destination_end;
-        let source_start = field_end(source_len_offset, 1)?;
-        require(bytes, source_start)?;
-        let source_len = usize::from(bytes[source_len_offset]);
-        let source_end = field_end(source_start, source_len)?;
-        require(bytes, source_end)?;
-
+        let (layout, version_specific) = QuicLongHeaderLayout::view(bytes)
+            .with_remainder()
+            .map_err(|error| layout_error(error, bytes.len()))?;
         Ok(Self {
-            bytes: &bytes[..source_end],
-            first_byte,
-            version,
-            destination_connection_id,
-            source_connection_id: QuicConnectionId::new(&bytes[source_start..source_end]),
-            version_specific: &bytes[source_end..],
+            bytes: layout.as_bytes(),
+            first_byte: layout.first_byte(),
+            version: layout.version(),
+            destination_connection_id: QuicConnectionId::new(layout.destination_connection_id()),
+            source_connection_id: QuicConnectionId::new(layout.source_connection_id()),
+            layout,
+            version_specific,
         })
     }
 
@@ -269,6 +253,26 @@ impl<'a> QuicLongHeader<'a> {
     /// Returns the version-aware semantic packet type for QUIC v1 or v2 only.
     pub const fn long_packet_type(self) -> Option<QuicLongPacketType> {
         QuicLongPacketType::from_raw(self.version, self.raw_type_bits())
+    }
+}
+
+fn layout_error(error: QuicLongHeaderLayoutError, input_len: usize) -> QuicPacketParseError {
+    match error {
+        QuicLongHeaderLayoutError::InputTooShort {
+            expected,
+            available,
+            ..
+        } => QuicPacketParseError::Incomplete {
+            required: input_len - available + expected,
+            available: input_len,
+        },
+        QuicLongHeaderLayoutError::TrailingBytes { .. }
+        | QuicLongHeaderLayoutError::InvalidCodecWidth { .. }
+        | QuicLongHeaderLayoutError::InvalidRangeSource { .. }
+        | QuicLongHeaderLayoutError::RangeEndBeforeStart { .. }
+        | QuicLongHeaderLayoutError::InvalidPrefixExtent { .. } => {
+            QuicPacketParseError::InvalidRepresentation
+        }
     }
 }
 
