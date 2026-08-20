@@ -2,7 +2,7 @@
 
 use super::address::Ipv4Address;
 use super::layout::{
-    Ipv4AddressRepr, Ipv4PacketLayoutMutationError, Ipv4PacketLayoutView, Ipv4PacketLayoutViewMut,
+    Ipv4AddressRepr, Ipv4PacketLayout, Ipv4PacketLayoutMutationError, Ipv4PacketLayoutViewMut,
 };
 use super::protocol::Ipv4Protocol;
 use crate::{error::ParseError, internet_checksum};
@@ -67,7 +67,7 @@ fn mutation_error(error: Ipv4PacketLayoutMutationError) -> Ipv4PacketMutationErr
 /// A structurally validated immutable RFC 791 packet view.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ipv4Packet<'a> {
-    layout: Ipv4PacketLayoutView<'a>,
+    layout: Ipv4PacketLayout<'a>,
     header_length: usize,
 }
 
@@ -76,12 +76,12 @@ impl<'a> Ipv4Packet<'a> {
     #[inline]
     pub fn parse(bytes: &'a [u8]) -> Result<Self, ParseError> {
         let (header_length, total_length) = validate(bytes)?;
-        let layout = Ipv4PacketLayoutView::parse_exact(&bytes[..total_length]).map_err(|_| {
-            ParseError::Truncated {
+        let layout = Ipv4PacketLayout::view(&bytes[..total_length])
+            .without_trailing()
+            .map_err(|_| ParseError::Truncated {
                 minimum: total_length,
                 available: bytes.len(),
-            }
-        })?;
+            })?;
         Ok(Self {
             layout,
             header_length,
@@ -366,8 +366,9 @@ fn validate(bytes: &[u8]) -> Result<(usize, usize), ParseError> {
             available: bytes.len(),
         });
     }
-    let preliminary =
-        Ipv4PacketLayoutView::parse_exact(bytes).map_err(|_| ParseError::Truncated {
+    let preliminary = Ipv4PacketLayout::view(bytes)
+        .without_trailing()
+        .map_err(|_| ParseError::Truncated {
             minimum: HEADER_LENGTH,
             available: bytes.len(),
         })?;

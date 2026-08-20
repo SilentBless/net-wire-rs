@@ -1,5 +1,5 @@
 use net_wire::ethernet::{
-    EtherType, EthernetFrameError, EthernetFrameView, EthernetFrameViewMut, MacAddress,
+    EtherType, EthernetFrame, EthernetFrameError, EthernetFrameViewMut, MacAddress,
 };
 
 use super::fixtures::{DESTINATION, SOURCE};
@@ -9,7 +9,7 @@ fn rfc_894_layout_accepts_a_14_octet_empty_payload_frame() {
     let bytes = [
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0x08, 0x00,
     ];
-    let frame = EthernetFrameView::parse_exact(&bytes).unwrap();
+    let frame = EthernetFrame::view(&bytes).without_trailing().unwrap();
     assert_eq!(frame.destination(), DESTINATION);
     assert_eq!(frame.source(), SOURCE);
     assert_eq!(frame.ether_type(), EtherType::IPV4);
@@ -23,7 +23,7 @@ fn rfc_894_layout_preserves_offsets_and_caller_bounded_payload() {
         0xde, 0xad, 0xbe, 0xef, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x88, 0xb5, 0xca,
         0xfe, 0xba, 0xbe,
     ];
-    let (frame, suffix) = EthernetFrameView::parse_prefix(&bytes).unwrap();
+    let (frame, suffix) = EthernetFrame::view(&bytes).with_remainder().unwrap();
     assert!(suffix.is_empty());
     assert_eq!(
         frame.destination(),
@@ -41,7 +41,7 @@ fn rfc_894_layout_preserves_offsets_and_caller_bounded_payload() {
 #[test]
 fn rfc_894_fixed_header_rejects_thirteen_octets() {
     assert!(matches!(
-        EthernetFrameView::parse_exact(&[0_u8; 13]),
+        EthernetFrame::view(&[0_u8; 13]).without_trailing(),
         Err(EthernetFrameError::InputTooShort {
             position: 3,
             expected: 2,

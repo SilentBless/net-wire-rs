@@ -31,24 +31,24 @@ wire_repr::wire_repr! {
     /// An IPv6 packet with a caller-bounded terminal payload.
     pub(super) layout Ipv6PacketLayout {
         /// The combined version, traffic class, and flow label word.
-        field first_word: BeU32 {
+        first_word: BeU32 {
             projections {
                 bits version: 28..=31;
                 bits traffic_class: 20..=27;
                 bits flow_label: 0..=19;
             }
-        }
+        };
         /// The base header's raw Payload Length field.
-        field payload_length: BeU16;
+        payload_length: BeU16;
         /// The next-header protocol number.
-        field next_header: U8;
+        next_header: U8;
         /// The hop limit.
-        field hop_limit: U8;
+        hop_limit: U8;
         /// The source IPv6 address.
-        field source: bytes(16) as Ipv6AddressRepr;
+        source: bytes(16) as Ipv6AddressRepr;
         /// The destination IPv6 address.
-        field destination: bytes(16) as Ipv6AddressRepr;
+        destination: bytes(16) as Ipv6AddressRepr;
         /// Every caller-supplied byte after the fixed base header.
-        field payload: bytes(current_pos..buf_end);
+        payload: remaining_bytes;
     }
 }

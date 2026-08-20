@@ -1,6 +1,6 @@
 use crate::fixtures::WIRE;
 use net_wire::ParseError;
-use net_wire::ethernet::{EthernetFrameView, EthernetFrameViewMut};
+use net_wire::ethernet::{EthernetFrame, EthernetFrameViewMut};
 
 fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
     let mut bytes = vec![0; 14];
@@ -13,7 +13,8 @@ fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
 fn ipv6_dispatch_contract() {
     let ip = &WIRE[..43];
     assert_eq!(
-        EthernetFrameView::parse_exact(&frame(0x0800, ip))
+        EthernetFrame::view(&frame(0x0800, ip))
+            .without_trailing()
             .unwrap()
             .ipv6()
             .unwrap(),
@@ -21,7 +22,8 @@ fn ipv6_dispatch_contract() {
     );
 
     let bytes = frame(0x86dd, ip);
-    let packet = EthernetFrameView::parse_exact(&bytes)
+    let packet = EthernetFrame::view(&bytes)
+        .without_trailing()
         .unwrap()
         .ipv6()
         .unwrap()
@@ -29,7 +31,8 @@ fn ipv6_dispatch_contract() {
     assert_eq!((packet.as_bytes(), packet.next_header().raw()), (ip, 0xfd));
 
     assert_eq!(
-        EthernetFrameView::parse_exact(&frame(0x86dd, &ip[..40]))
+        EthernetFrame::view(&frame(0x86dd, &ip[..40]))
+            .without_trailing()
             .unwrap()
             .ipv6(),
         Err(ParseError::Truncated {

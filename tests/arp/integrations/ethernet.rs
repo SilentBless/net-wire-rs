@@ -1,4 +1,4 @@
-use net_wire::ethernet::{EthernetFrameView, EthernetFrameViewMut, MacAddress};
+use net_wire::ethernet::{EthernetFrame, EthernetFrameViewMut, MacAddress};
 
 fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
     let mut bytes = vec![0; 14];
@@ -13,7 +13,8 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
         0, 1, 8, 0, 6, 4, 0, 1, 1, 2, 3, 4, 5, 6, 192, 0, 2, 1, 0, 0, 0, 0, 0, 0, 192, 0, 2, 2,
     ];
     assert_eq!(
-        EthernetFrameView::parse_exact(&frame(0x0800, &arp))
+        EthernetFrame::view(&frame(0x0800, &arp))
+            .without_trailing()
             .unwrap()
             .arp()
             .unwrap(),
@@ -21,7 +22,8 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
     );
 
     let bytes = frame(0x0806, &arp);
-    let packet = EthernetFrameView::parse_exact(&bytes)
+    let packet = EthernetFrame::view(&bytes)
+        .without_trailing()
         .unwrap()
         .arp()
         .unwrap()
@@ -33,7 +35,8 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
     assert_eq!(packet.target_mac_address(), Some(MacAddress::new([0; 6])));
 
     assert!(
-        EthernetFrameView::parse_exact(&frame(0x0806, &arp[..7]))
+        EthernetFrame::view(&frame(0x0806, &arp[..7]))
+            .without_trailing()
             .unwrap()
             .arp()
             .is_err()
@@ -43,7 +46,8 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
         0, 2, 8, 0, 6, 4, 0, 1, 1, 2, 3, 4, 5, 6, 192, 0, 2, 1, 0, 0, 0, 0, 0, 0, 192, 0, 2, 2,
     ];
     assert_eq!(
-        EthernetFrameView::parse_exact(&frame(0x0806, &wrong_hardware_type))
+        EthernetFrame::view(&frame(0x0806, &wrong_hardware_type))
+            .without_trailing()
             .unwrap()
             .arp()
             .unwrap()
@@ -56,7 +60,8 @@ fn arp_dispatch_validates_ether_type_and_mac_helpers() {
         0, 1, 8, 0, 5, 4, 0, 1, 1, 2, 3, 4, 5, 192, 0, 2, 1, 0, 0, 0, 0, 0, 192, 0, 2, 2,
     ];
     assert_eq!(
-        EthernetFrameView::parse_exact(&frame(0x0806, &short_hardware_address))
+        EthernetFrame::view(&frame(0x0806, &short_hardware_address))
+            .without_trailing()
             .unwrap()
             .arp()
             .unwrap()

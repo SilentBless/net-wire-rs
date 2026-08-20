@@ -6,7 +6,7 @@ mod layout;
 pub(crate) mod types;
 
 pub use layout::{
-    ArpPacketBuilder, ArpPacketError, ArpPacketMutationError, ArpPacketView, ArpPacketViewMut,
+    ArpPacket, ArpPacketBuilder, ArpPacketError, ArpPacketMutationError, ArpPacketViewMut,
     ArpPacketWriteError,
 };
 pub use types::{ArpHardwareType, ArpOperation, ArpProtocolType};

@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use net_wire::{
-    ethernet::{EtherType, EthernetFrameBuilder, EthernetFrameView, MacAddress},
+    ethernet::{EtherType, EthernetFrame, EthernetFrameBuilder, MacAddress},
     ipv4::{Ipv4Address, Ipv4Packet, Ipv4PacketBuilder, Ipv4Protocol},
     ipv6::{Ipv6Packet, Ipv6PayloadLength},
     udp::{UdpChecksumStatus, UdpDatagramBuilder},
@@ -56,7 +56,7 @@ pub fn report(bytes: &[u8]) -> String {
     let mut output = String::new();
     let _ = writeln!(output, "Frame: {} bytes supplied", bytes.len());
 
-    let frame = match EthernetFrameView::parse_exact(bytes) {
+    let frame = match EthernetFrame::view(bytes).without_trailing() {
         Ok(frame) => frame,
         Err(error) => {
             let _ = writeln!(output, "Ethernet: parse failed: {error}");

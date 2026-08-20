@@ -40,12 +40,12 @@ Each layer first parses its own bounded bytes, then dispatches only when its dis
 
 ```rust
 use net_wire::{
-    ethernet::{EtherType, EthernetFrameView},
+    ethernet::{EtherType, EthernetFrame},
     ipv4::Ipv4Packet,
 };
 
 fn inspect(bytes: &[u8]) {
-    let Ok(frame) = EthernetFrameView::parse_exact(bytes) else {
+    let Ok(frame) = EthernetFrame::view(bytes).without_trailing() else {
         return;
     };
     if frame.ether_type() != EtherType::IPV4 {
@@ -108,7 +108,7 @@ assert!(packet.checksum_is_valid());
 ```
 
 > [!IMPORTANT]
-> An Ethernet frame on the medium may end with minimum-frame padding and a four-byte FCS. `EthernetFrameView` intentionally does not guess those boundaries: Ethernet II has no payload-length field, receive APIs commonly remove the FCS, and captured input may contain padding, FCS, both, or neither. The view is therefore caller-bounded and treats every supplied byte after its 14-byte header as payload. Use capture metadata to exclude known trailers before parsing.
+> An Ethernet frame on the medium may end with minimum-frame padding and a four-byte FCS. `EthernetFrame` intentionally does not guess those boundaries: Ethernet II has no payload-length field, receive APIs commonly remove the FCS, and captured input may contain padding, FCS, both, or neither. The view is therefore caller-bounded and treats every supplied byte after its 14-byte header as payload. Use capture metadata to exclude known trailers before parsing.
 >
 > A nested parser may establish a narrower boundary. In the example above, IPv4's `total_length` keeps trailing Ethernet bytes out of `Ipv4Packet` and its UDP/TCP payload. The remaining bytes are still only an unclassified tail; without source metadata they cannot safely be called padding or a valid FCS, and `Ipv4Packet::parse` does not return them as a formal suffix.
 

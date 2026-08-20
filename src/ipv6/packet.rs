@@ -2,7 +2,7 @@ use core::fmt;
 
 use super::address::Ipv6Address;
 use super::layout::{
-    HEADER_LENGTH, Ipv6AddressRepr, Ipv6PacketLayoutMutationError, Ipv6PacketLayoutView,
+    HEADER_LENGTH, Ipv6AddressRepr, Ipv6PacketLayout, Ipv6PacketLayoutMutationError,
     Ipv6PacketLayoutViewMut,
 };
 use super::next_header::Ipv6NextHeader;
@@ -80,7 +80,7 @@ fn mutation_error(error: Ipv6PacketLayoutMutationError) -> Ipv6PacketMutationErr
 /// trailing byte as an unresolved tail; zero with no trailing bytes is an ordinary empty payload.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ipv6Packet<'a> {
-    layout: Ipv6PacketLayoutView<'a>,
+    layout: Ipv6PacketLayout<'a>,
 }
 
 impl<'a> Ipv6Packet<'a> {
@@ -88,12 +88,12 @@ impl<'a> Ipv6Packet<'a> {
     #[inline]
     pub fn parse(bytes: &'a [u8]) -> Result<Self, ParseError> {
         let packet_length = validate(bytes)?;
-        let layout = Ipv6PacketLayoutView::parse_exact(&bytes[..packet_length]).map_err(|_| {
-            ParseError::Truncated {
+        let layout = Ipv6PacketLayout::view(&bytes[..packet_length])
+            .without_trailing()
+            .map_err(|_| ParseError::Truncated {
                 minimum: packet_length,
                 available: bytes.len(),
-            }
-        })?;
+            })?;
         Ok(Self { layout })
     }
 
@@ -355,10 +355,12 @@ fn validate(bytes: &[u8]) -> Result<usize, ParseError> {
             available: bytes.len(),
         });
     }
-    let layout = Ipv6PacketLayoutView::parse_exact(bytes).map_err(|_| ParseError::Truncated {
-        minimum: HEADER_LENGTH,
-        available: bytes.len(),
-    })?;
+    let layout = Ipv6PacketLayout::view(bytes)
+        .without_trailing()
+        .map_err(|_| ParseError::Truncated {
+            minimum: HEADER_LENGTH,
+            available: bytes.len(),
+        })?;
     let version = layout.version();
     if version != 6 {
         return Err(ParseError::InvalidVersion {

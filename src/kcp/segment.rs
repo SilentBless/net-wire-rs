@@ -4,8 +4,8 @@ use core::fmt;
 
 use super::error::{KcpSegmentMutationError, KcpSegmentParseError};
 use super::layout::{
-    KCP_SEGMENT_HEADER_LEN, KcpSegmentLayoutError, KcpSegmentLayoutMutationError,
-    KcpSegmentLayoutView, KcpSegmentLayoutViewMut,
+    KCP_SEGMENT_HEADER_LEN, KcpSegmentLayout, KcpSegmentLayoutError, KcpSegmentLayoutMutationError,
+    KcpSegmentLayoutViewMut,
 };
 use super::types::{
     KcpCommand, KcpConversationId, KcpFragment, KcpSequenceNumber, KcpTimestamp, KcpUnacknowledged,
@@ -35,7 +35,8 @@ fn segment_length(bytes: &[u8]) -> Result<usize, KcpSegmentParseError> {
         });
     }
 
-    let (preliminary, _) = KcpSegmentLayoutView::parse_prefix(bytes)
+    let (preliminary, _) = KcpSegmentLayout::view(bytes)
+        .with_remainder()
         .map_err(|error| layout_error(error, bytes.len()))?;
     let payload_length = usize::try_from(preliminary.payload_length()).map_err(|_| {
         KcpSegmentParseError::PayloadLengthNotRepresentable {
@@ -82,7 +83,7 @@ fn mutation_error(error: KcpSegmentLayoutMutationError) -> KcpSegmentMutationErr
 /// An exact borrowed KCP segment with a structurally complete declared payload.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct KcpSegment<'a> {
-    layout: KcpSegmentLayoutView<'a>,
+    layout: KcpSegmentLayout<'a>,
 }
 
 impl<'a> KcpSegment<'a> {
@@ -90,7 +91,8 @@ impl<'a> KcpSegment<'a> {
     pub fn parse(bytes: &'a [u8]) -> Result<(Self, &'a [u8]), KcpSegmentParseError> {
         let segment_length = segment_length(bytes)?;
         let (segment, suffix) = bytes.split_at(segment_length);
-        let layout = KcpSegmentLayoutView::parse_exact(segment)
+        let layout = KcpSegmentLayout::view(segment)
+            .without_trailing()
             .map_err(|error| layout_error(error, segment.len()))?;
         Ok((Self { layout }, suffix))
     }

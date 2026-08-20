@@ -1,12 +1,10 @@
-use net_wire::arp::{
-    ArpHardwareType, ArpOperation, ArpPacketView, ArpPacketViewMut, ArpProtocolType,
-};
+use net_wire::arp::{ArpHardwareType, ArpOperation, ArpPacket, ArpPacketViewMut, ArpProtocolType};
 
 use super::fixtures::GENERIC;
 
 #[test]
 fn prefix_and_exact_parsing_bound_the_rfc826_layout() {
-    let (packet, suffix) = ArpPacketView::parse_prefix(&GENERIC).unwrap();
+    let (packet, suffix) = ArpPacket::view(&GENERIC).with_remainder().unwrap();
     assert_eq!(packet.hardware_type(), ArpHardwareType::new(0x1234));
     assert_eq!(packet.hardware_type_raw(), 0x1234);
     assert_eq!(packet.protocol_type(), ArpProtocolType::new(0xbeef));
@@ -21,15 +19,15 @@ fn prefix_and_exact_parsing_bound_the_rfc826_layout() {
     assert_eq!(packet.target_protocol_address(), &[9, 10]);
     assert_eq!(packet.as_bytes(), &GENERIC[..18]);
     assert_eq!(suffix, &[11, 12, 0xee]);
-    assert!(ArpPacketView::parse_exact(&GENERIC).is_err());
-    assert!(ArpPacketView::parse_prefix(&GENERIC[..7]).is_err());
-    assert!(ArpPacketView::parse_prefix(&GENERIC[..17]).is_err());
+    assert!(ArpPacket::view(&GENERIC).without_trailing().is_err());
+    assert!(ArpPacket::view(&GENERIC[..7]).with_remainder().is_err());
+    assert!(ArpPacket::view(&GENERIC[..17]).with_remainder().is_err());
 }
 
 #[test]
 fn zero_lengths_and_unknown_wrappers_are_valid() {
     let bytes = [0x12, 0x34, 0xbe, 0xef, 0, 0, 0xca, 0xfe, 0xaa];
-    let (packet, suffix) = ArpPacketView::parse_prefix(&bytes).unwrap();
+    let (packet, suffix) = ArpPacket::view(&bytes).with_remainder().unwrap();
     assert_eq!(packet.hardware_type(), ArpHardwareType::new(0x1234));
     assert_eq!(packet.hardware_type_raw(), 0x1234);
     assert_eq!(packet.protocol_type(), ArpProtocolType::new(0xbeef));

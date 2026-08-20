@@ -4,7 +4,7 @@ use super::error::Http2ParseError;
 pub(super) mod layout;
 
 use self::layout::{
-    FRAME_HEADER_LENGTH, Http2FrameLayoutError, Http2FrameLayoutView, Http2FrameLayoutViewMut,
+    FRAME_HEADER_LENGTH, Http2FrameLayout, Http2FrameLayoutError, Http2FrameLayoutViewMut,
 };
 use super::types::{Http2FrameType, Http2StreamId};
 use core::fmt;
@@ -68,11 +68,11 @@ fn layout_error(error: Http2FrameLayoutError, available: usize) -> Http2ParseErr
 /// A structurally bounded raw HTTP/2 frame preserving all header fields.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Http2Frame<'a> {
-    layout: Http2FrameLayoutView<'a>,
+    layout: Http2FrameLayout<'a>,
 }
 
 impl<'a> Http2Frame<'a> {
-    pub(super) const fn from_layout(layout: Http2FrameLayoutView<'a>) -> Self {
+    pub(super) const fn from_layout(layout: Http2FrameLayout<'a>) -> Self {
         Self { layout }
     }
 
@@ -84,7 +84,8 @@ impl<'a> Http2Frame<'a> {
                 available: bytes.len(),
             });
         }
-        let header = Http2FrameLayoutView::parse_exact(bytes)
+        let header = Http2FrameLayout::view(bytes)
+            .without_trailing()
             .map_err(|error| layout_error(error, bytes.len()))?;
         let payload_length = payload_length(&header);
         if payload_length > maximum_payload {
@@ -105,7 +106,8 @@ impl<'a> Http2Frame<'a> {
                 available: bytes.len(),
             });
         }
-        let layout = Http2FrameLayoutView::parse_exact(&bytes[..required])
+        let layout = Http2FrameLayout::view(&bytes[..required])
+            .without_trailing()
             .map_err(|error| layout_error(error, required))?;
         Ok(Self { layout })
     }
@@ -167,7 +169,8 @@ impl<'a> Http2FrameMut<'a> {
                 available,
             });
         }
-        let header = Http2FrameLayoutView::parse_exact(bytes)
+        let header = Http2FrameLayout::view(bytes)
+            .without_trailing()
             .map_err(|error| layout_error(error, available))?;
         let payload_length = payload_length(&header);
         if payload_length > maximum_payload {
@@ -229,7 +232,7 @@ impl<'a> Http2FrameMut<'a> {
     }
 }
 
-fn payload_length(layout: &Http2FrameLayoutView<'_>) -> usize {
+fn payload_length(layout: &Http2FrameLayout<'_>) -> usize {
     usize::from(layout.payload_length_high()) << 16
         | usize::from(layout.payload_length_middle()) << 8
         | usize::from(layout.payload_length_low())

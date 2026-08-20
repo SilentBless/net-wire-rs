@@ -2,7 +2,7 @@
 
 use super::flags::TcpFlags;
 use super::layout::{
-    HEADER_LENGTH, TcpSegmentLayoutMutationError, TcpSegmentLayoutView, TcpSegmentLayoutViewMut,
+    HEADER_LENGTH, TcpSegmentLayout, TcpSegmentLayoutMutationError, TcpSegmentLayoutViewMut,
 };
 use crate::error::ParseError;
 use core::fmt;
@@ -62,15 +62,16 @@ fn mutation_error(error: TcpSegmentLayoutMutationError) -> TcpSegmentMutationErr
 /// A structurally validated TCP segment.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TcpSegment<'a> {
-    layout: TcpSegmentLayoutView<'a>,
+    layout: TcpSegmentLayout<'a>,
     header_length: usize,
 }
 impl<'a> TcpSegment<'a> {
     /// Parses a complete TCP segment without checking its checksum.
     pub fn parse(bytes: &'a [u8]) -> Result<Self, ParseError> {
         let header_length = validated_header_length(bytes)?;
-        let layout =
-            TcpSegmentLayoutView::parse_exact(bytes).map_err(|_| ParseError::Truncated {
+        let layout = TcpSegmentLayout::view(bytes)
+            .without_trailing()
+            .map_err(|_| ParseError::Truncated {
                 minimum: HEADER_LENGTH,
                 available: bytes.len(),
             })?;
@@ -333,10 +334,12 @@ fn validated_header_length(bytes: &[u8]) -> Result<usize, ParseError> {
             available: bytes.len(),
         });
     }
-    let layout = TcpSegmentLayoutView::parse_exact(bytes).map_err(|_| ParseError::Truncated {
-        minimum: HEADER_LENGTH,
-        available: bytes.len(),
-    })?;
+    let layout = TcpSegmentLayout::view(bytes)
+        .without_trailing()
+        .map_err(|_| ParseError::Truncated {
+            minimum: HEADER_LENGTH,
+            available: bytes.len(),
+        })?;
     let header_length = usize::from(layout.data_offset()) * 4;
     if header_length < HEADER_LENGTH {
         return Err(ParseError::InvalidHeaderLength {

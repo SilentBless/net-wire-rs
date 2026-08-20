@@ -1,6 +1,6 @@
 use crate::fixtures::BASIC;
 use net_wire::ParseError;
-use net_wire::ethernet::{EthernetFrameView, EthernetFrameViewMut};
+use net_wire::ethernet::{EthernetFrame, EthernetFrameViewMut};
 
 fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
     let mut bytes = vec![
@@ -26,20 +26,23 @@ fn frame(ether_type: u16, payload: &[u8]) -> Vec<u8> {
 #[test]
 fn ipv4_dispatch_matches_ether_type_and_writes_through() {
     assert!(
-        EthernetFrameView::parse_exact(&frame(0x0800, &BASIC[..20]))
+        EthernetFrame::view(&frame(0x0800, &BASIC[..20]))
+            .without_trailing()
             .unwrap()
             .ipv4()
             .unwrap()
             .is_some()
     );
     assert_eq!(
-        EthernetFrameView::parse_exact(&frame(0x86dd, &BASIC[..20]))
+        EthernetFrame::view(&frame(0x86dd, &BASIC[..20]))
+            .without_trailing()
             .unwrap()
             .ipv4(),
         Ok(None)
     );
     assert_eq!(
-        EthernetFrameView::parse_exact(&frame(0x0800, &BASIC[..19]))
+        EthernetFrame::view(&frame(0x0800, &BASIC[..19]))
+            .without_trailing()
             .unwrap()
             .ipv4(),
         Err(ParseError::Truncated {

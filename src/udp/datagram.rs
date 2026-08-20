@@ -1,7 +1,7 @@
 //! Checked borrowed UDP datagram views.
 
 use super::layout::{
-    HEADER_LENGTH, UdpDatagramLayoutMutationError, UdpDatagramLayoutView, UdpDatagramLayoutViewMut,
+    HEADER_LENGTH, UdpDatagramLayout, UdpDatagramLayoutMutationError, UdpDatagramLayoutViewMut,
 };
 use crate::error::ParseError;
 use core::fmt;
@@ -57,19 +57,19 @@ fn mutation_error(error: UdpDatagramLayoutMutationError) -> UdpDatagramMutationE
 /// A structurally validated UDP datagram.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UdpDatagram<'a> {
-    layout: UdpDatagramLayoutView<'a>,
+    layout: UdpDatagramLayout<'a>,
 }
 
 impl<'a> UdpDatagram<'a> {
     /// Parses a UDP datagram without checking its checksum.
     pub fn parse(bytes: &'a [u8]) -> Result<Self, ParseError> {
         let length = validated_length(bytes)?;
-        let layout = UdpDatagramLayoutView::parse_exact(&bytes[..length]).map_err(|_| {
-            ParseError::Truncated {
+        let layout = UdpDatagramLayout::view(&bytes[..length])
+            .without_trailing()
+            .map_err(|_| ParseError::Truncated {
                 minimum: length,
                 available: bytes.len(),
-            }
-        })?;
+            })?;
         Ok(Self { layout })
     }
 
@@ -223,8 +223,9 @@ fn validated_length(bytes: &[u8]) -> Result<usize, ParseError> {
             available: bytes.len(),
         });
     }
-    let preliminary =
-        UdpDatagramLayoutView::parse_exact(bytes).map_err(|_| ParseError::Truncated {
+    let preliminary = UdpDatagramLayout::view(bytes)
+        .without_trailing()
+        .map_err(|_| ParseError::Truncated {
             minimum: HEADER_LENGTH,
             available: bytes.len(),
         })?;

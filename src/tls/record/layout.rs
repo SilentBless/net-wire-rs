@@ -6,12 +6,12 @@ wire_repr::wire_repr! {
     /// A TLS record with a fragment bounded by its encoded length.
     pub(super) layout TlsRecordLayout {
         /// The raw TLS record content type.
-        field content_type: U8 as super::super::types::TlsContentType;
+        content_type: U8 as super::super::types::TlsContentType;
         /// The legacy TLS record version.
-        field version: BeU16 as super::super::types::TlsProtocolVersion;
+        version: BeU16 as super::super::types::TlsProtocolVersion;
         /// The encoded fragment length, derived from `fragment` during construction.
-        field fragment_length: BeU16;
+        fragment_length: BeU16;
         /// The exact record fragment.
-        field fragment: bytes(current_pos..current_pos + fragment_length);
+        fragment: bytes(fragment_length);
     }
 }

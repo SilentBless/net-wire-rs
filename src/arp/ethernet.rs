@@ -1,18 +1,20 @@
 use crate::ethernet::{
-    layout::{EthernetFrameView, EthernetFrameViewMut},
+    layout::{EthernetFrame, EthernetFrameViewMut},
     types::{EtherType, MacAddress},
 };
 
-use super::{ArpHardwareType, ArpPacketError, ArpPacketView, ArpPacketViewMut};
+use super::{ArpHardwareType, ArpPacket, ArpPacketError, ArpPacketViewMut};
 
-impl<'a> EthernetFrameView<'a> {
+impl<'a> EthernetFrame<'a> {
     /// Parses an ARP payload only when this frame's EtherType is ARP.
     #[inline]
-    pub fn arp(&self) -> Result<Option<ArpPacketView<'a>>, ArpPacketError> {
+    pub fn arp(&self) -> Result<Option<ArpPacket<'a>>, ArpPacketError> {
         if self.ether_type() != EtherType::ARP {
             return Ok(None);
         }
-        ArpPacketView::parse_prefix(self.payload()).map(|(packet, _)| Some(packet))
+        ArpPacket::view(self.payload())
+            .with_remainder()
+            .map(|(packet, _)| Some(packet))
     }
 }
 
@@ -27,7 +29,7 @@ impl<'a> EthernetFrameViewMut<'a> {
     }
 }
 
-impl ArpPacketView<'_> {
+impl ArpPacket<'_> {
     /// Returns the sender MAC address only for Ethernet hardware with a six-octet address.
     #[inline]
     pub fn sender_mac_address(&self) -> Option<MacAddress> {

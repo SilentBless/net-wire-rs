@@ -3,7 +3,7 @@
 use core::fmt;
 
 use super::layout::{
-    HEADER_LENGTH, Icmpv6MessageLayoutMutationError, Icmpv6MessageLayoutView,
+    HEADER_LENGTH, Icmpv6MessageLayout, Icmpv6MessageLayoutMutationError,
     Icmpv6MessageLayoutViewMut,
 };
 use super::types::Icmpv6Type;
@@ -62,7 +62,7 @@ fn mutation_error(error: Icmpv6MessageLayoutMutationError) -> Icmpv6MessageMutat
 /// not reject a message with an invalid checksum.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Icmpv6Message<'a> {
-    layout: Icmpv6MessageLayoutView<'a>,
+    layout: Icmpv6MessageLayout<'a>,
 }
 
 impl<'a> Icmpv6Message<'a> {
@@ -74,8 +74,9 @@ impl<'a> Icmpv6Message<'a> {
                 available: bytes.len(),
             });
         }
-        let layout =
-            Icmpv6MessageLayoutView::parse_exact(bytes).map_err(|_| ParseError::Truncated {
+        let layout = Icmpv6MessageLayout::view(bytes)
+            .without_trailing()
+            .map_err(|_| ParseError::Truncated {
                 minimum: HEADER_LENGTH,
                 available: bytes.len(),
             })?;

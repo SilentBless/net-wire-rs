@@ -1,11 +1,11 @@
 use super::packet::{Ipv6Packet, Ipv6PacketMut};
 use crate::error::ParseError;
 use crate::ethernet::{
-    layout::{EthernetFrameView, EthernetFrameViewMut},
+    layout::{EthernetFrame, EthernetFrameViewMut},
     types::EtherType,
 };
 
-impl<'a> EthernetFrameView<'a> {
+impl<'a> EthernetFrame<'a> {
     /// Parses IPv6 only when this frame's EtherType is IPv6.
     #[inline]
     pub fn ipv6(&self) -> Result<Option<Ipv6Packet<'a>>, ParseError> {

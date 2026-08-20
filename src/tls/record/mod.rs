@@ -3,9 +3,8 @@
 mod layout;
 
 use self::layout::{
-    TLS_RECORD_HEADER_LEN, TlsRecordLayoutBuilder, TlsRecordLayoutError,
-    TlsRecordLayoutMutationError, TlsRecordLayoutView, TlsRecordLayoutViewMut,
-    TlsRecordLayoutWriteError,
+    TLS_RECORD_HEADER_LEN, TlsRecordLayout, TlsRecordLayoutBuilder, TlsRecordLayoutError,
+    TlsRecordLayoutMutationError, TlsRecordLayoutViewMut, TlsRecordLayoutWriteError,
 };
 use super::{
     error::{TlsBuildError, TlsParseError, TlsRecordMutationError},
@@ -76,7 +75,7 @@ fn build_error(error: TlsRecordLayoutWriteError) -> TlsBuildError {
 /// A single structurally bounded TLS record.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TlsRecord<'a> {
-    layout: TlsRecordLayoutView<'a>,
+    layout: TlsRecordLayout<'a>,
 }
 
 impl<'a> TlsRecord<'a> {
@@ -89,7 +88,8 @@ impl<'a> TlsRecord<'a> {
             });
         }
         let input_length = bytes.len();
-        let (layout, _) = TlsRecordLayoutView::parse_prefix(bytes)
+        let (layout, _) = TlsRecordLayout::view(bytes)
+            .with_remainder()
             .map_err(|error| parse_error(error, input_length))?;
         Ok(Self { layout })
     }

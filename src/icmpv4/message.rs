@@ -1,7 +1,7 @@
 //! ICMPv4 checked borrowed message views.
 
 use super::layout::{
-    HEADER_LENGTH, Icmpv4MessageLayoutMutationError, Icmpv4MessageLayoutView,
+    HEADER_LENGTH, Icmpv4MessageLayout, Icmpv4MessageLayoutMutationError,
     Icmpv4MessageLayoutViewMut,
 };
 use super::types::Icmpv4Type;
@@ -65,7 +65,7 @@ pub(super) fn checksum_sum(message_type: Icmpv4Type, code: u8, checksum: u16, bo
 /// A structurally validated ICMPv4 message.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Icmpv4Message<'a> {
-    layout: Icmpv4MessageLayoutView<'a>,
+    layout: Icmpv4MessageLayout<'a>,
 }
 
 impl<'a> Icmpv4Message<'a> {
@@ -77,8 +77,9 @@ impl<'a> Icmpv4Message<'a> {
                 available: bytes.len(),
             });
         }
-        let layout =
-            Icmpv4MessageLayoutView::parse_exact(bytes).map_err(|_| ParseError::Truncated {
+        let layout = Icmpv4MessageLayout::view(bytes)
+            .without_trailing()
+            .map_err(|_| ParseError::Truncated {
                 minimum: HEADER_LENGTH,
                 available: bytes.len(),
             })?;

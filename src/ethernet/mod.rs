@@ -17,7 +17,7 @@ pub(crate) mod types;
 
 /// Generated Ethernet II frame views and caller-buffer construction.
 pub use layout::{
-    EthernetFrameBuilder, EthernetFrameError, EthernetFrameMutationError, EthernetFrameView,
+    EthernetFrame, EthernetFrameBuilder, EthernetFrameError, EthernetFrameMutationError,
     EthernetFrameViewMut, EthernetFrameWriteError,
 };
 /// Ethernet semantic field types.
